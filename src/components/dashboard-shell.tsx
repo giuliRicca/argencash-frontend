@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 
 import { requestJson, postJson } from "@/lib/api";
 import { buildAuthorizationHeader } from "@/lib/auth-token";
-import { Account, AuthenticatedUser, LiveExchangeRate, CreateAccountRequest, Category, CreateTransactionRequest } from "@/lib/contracts";
+import { Account, AuthenticatedUser, LiveExchangeRateByType, CreateAccountRequest, Category, CreateTransactionRequest, ExchangeRateType } from "@/lib/contracts";
 import { clearToken, useStoredToken } from "@/lib/storage";
 import { formatRate } from "@/components/formatters";
 import { useState } from "react";
@@ -44,14 +44,17 @@ export function DashboardShell() {
     enabled: Boolean(accessToken),
   });
 
-  const liveRateQuery = useQuery({
-    queryKey: ["live-rate", accessToken, "USD", "ARS"],
-    queryFn: () =>
-      requestJson<LiveExchangeRate>("/api/exchange-rates/live?baseCurrency=USD&targetCurrency=ARS", {
+  const liveRatesQuery = useQuery({
+    queryKey: ["live-rates", accessToken, "USD", "ARS"],
+    queryFn: () => {
+      const rateTypesQuery = DASHBOARD_RATE_TYPES.map((rateType) => `rateTypes=${rateType}`).join("&");
+
+      return requestJson<LiveExchangeRateByType[]>(`/api/exchange-rates/live/batch?baseCurrency=USD&targetCurrency=ARS&${rateTypesQuery}`, {
         headers: {
           Authorization: buildAuthorizationHeader(accessToken),
         },
-      }),
+      });
+    },
     enabled: Boolean(accessToken),
     refetchInterval: 60_000,
   });
@@ -184,6 +187,9 @@ export function DashboardShell() {
                 <div className="flex items-center justify-between gap-4">
                   <div>
                     <p className="text-lg font-semibold text-stone-100">{account.name}</p>
+                    <span className="mt-2 inline-block rounded-full border border-[#dbc9a3]/30 bg-[#dbc9a3]/10 px-2 py-1 text-[11px] font-medium tracking-[0.06em] text-[#dbc9a3]">
+                      {account.exchangeRateType}
+                    </span>
                     <div className="mt-2 space-y-1 text-sm text-stone-400">
                       <p>USD {formatRate(account.balanceUsd)}</p>
                       <p>ARS {formatRate(account.balanceArs)}</p>
@@ -200,15 +206,22 @@ export function DashboardShell() {
         </section>
 
         <section className="rounded-[2rem] border border-white/8 bg-[#131917]/92 p-6 shadow-[0_20px_80px_rgba(0,0,0,0.24)] sm:p-8">
-          <h2 className="text-2xl font-semibold text-stone-100">USD / ARS</h2>
+          <h2 className="text-2xl font-semibold text-stone-100">USD / ARS rates</h2>
 
           <div className="mt-5 rounded-3xl border border-[#313935] bg-[#0f1412] p-5">
-            {liveRateQuery.isLoading ? <LoadingCard label="Loading exchange rate..." /> : null}
-            {liveRateQuery.isError ? <ErrorBanner message="Exchange rate could not be loaded." /> : null}
-            {liveRateQuery.data ? (
-              <div className="grid gap-4 sm:grid-cols-2">
-                <RateCard label="Buy" value={formatRate(liveRateQuery.data.buyRate)} />
-                <RateCard label="Sell" value={formatRate(liveRateQuery.data.sellRate)} />
+            {liveRatesQuery.isLoading ? <LoadingCard label="Loading exchange rates..." /> : null}
+            {liveRatesQuery.isError ? <ErrorBanner message="Exchange rates could not be loaded." /> : null}
+            {liveRatesQuery.data ? (
+              <div className="grid gap-4 md:grid-cols-2">
+                {liveRatesQuery.data.map((entry) => (
+                  <article key={entry.rateType} className="rounded-2xl border border-[#313935] bg-[#111816] p-4">
+                    <p className="text-xs font-medium uppercase tracking-[0.16em] text-stone-400">{entry.rateType}</p>
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                      <RateCard label="Buy" value={formatRate(entry.rate.buyRate)} />
+                      <RateCard label="Sell" value={formatRate(entry.rate.sellRate)} />
+                    </div>
+                  </article>
+                ))}
               </div>
             ) : null}
           </div>
@@ -235,6 +248,8 @@ export function DashboardShell() {
     </main>
   );
 }
+
+const DASHBOARD_RATE_TYPES: ExchangeRateType[] = ["OFFICIAL", "BLUE", "CCL", "CRYPTO"];
 
 function buildPortfolioTotals(accounts: Account[]) {
   return accounts.reduce(

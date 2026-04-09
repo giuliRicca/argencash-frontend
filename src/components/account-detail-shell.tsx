@@ -6,7 +6,7 @@ import { useState } from "react";
 
 import { deleteRequest, putJson, requestJson, postJson } from "@/lib/api";
 import { buildAuthorizationHeader } from "@/lib/auth-token";
-import { Account, AccountDetail, CreateTransactionRequest, Category, UpdateAccountRequest } from "@/lib/contracts";
+import { Account, AccountDetail, CreateTransactionRequest, Category, ExchangeRateType, UpdateAccountRequest } from "@/lib/contracts";
 import { useStoredToken } from "@/lib/storage";
 import { formatDateTime, formatRate } from "@/components/formatters";
 import { CreateTransactionModal } from "@/components/create-transaction-modal";
@@ -22,6 +22,7 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
   const [deletingTransactionId, setDeletingTransactionId] = useState<string | null>(null);
   const [isEditingName, setIsEditingName] = useState(false);
   const [accountNameDraft, setAccountNameDraft] = useState("");
+  const [exchangeRateTypeDraft, setExchangeRateTypeDraft] = useState<ExchangeRateType>("OFFICIAL");
 
   const accountQuery = useQuery({
     queryKey: ["account-detail", accountId, accessToken],
@@ -101,6 +102,9 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
             <h1 className="mt-3 text-3xl font-semibold tracking-tight text-stone-100">{accountQuery.data?.name ?? "Account"}</h1>
             {accountQuery.data ? (
               <div className="mt-3 flex flex-wrap items-center gap-3">
+                <span className="rounded-full border border-[#dbc9a3]/20 bg-[#dbc9a3]/8 px-3 py-1 text-xs font-medium text-[#e7ddc5]">
+                  {accountQuery.data.exchangeRateType}
+                </span>
                 {isEditingName ? (
                   <>
                     <input
@@ -109,10 +113,33 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
                       type="text"
                       value={accountNameDraft}
                     />
+                    <select
+                      className="rounded-2xl border border-[#56635b] bg-[#0f1412] px-3 py-2 text-sm text-stone-100 outline-none"
+                      onChange={(event) => setExchangeRateTypeDraft(event.target.value as ExchangeRateType)}
+                      value={exchangeRateTypeDraft}
+                    >
+                      {EXCHANGE_RATE_TYPES.map((rateType) => (
+                        <option key={rateType} value={rateType}>
+                          {rateType}
+                        </option>
+                      ))}
+                    </select>
                     <button
                       className="rounded-xl bg-[#dbc9a3] px-3 py-2 text-xs font-medium text-[#141915] transition hover:bg-[#e5d5b3] disabled:cursor-not-allowed disabled:opacity-70"
-                      disabled={updateAccountNameMutation.isPending || accountNameDraft.trim().length === 0 || accountNameDraft.trim() === accountQuery.data.name}
-                      onClick={() => updateAccountNameMutation.mutate({ name: accountNameDraft.trim() })}
+                      disabled={
+                        updateAccountNameMutation.isPending ||
+                        !hasAccountUpdateChanges(accountQuery.data.name, accountNameDraft, accountQuery.data.exchangeRateType, exchangeRateTypeDraft)
+                      }
+                      onClick={() => {
+                        const payload = buildUpdateAccountPayload(
+                          accountQuery.data.name,
+                          accountNameDraft,
+                          accountQuery.data.exchangeRateType,
+                          exchangeRateTypeDraft,
+                        );
+
+                        updateAccountNameMutation.mutate(payload);
+                      }}
                       type="button"
                     >
                       {updateAccountNameMutation.isPending ? "Saving..." : "Save"}
@@ -122,6 +149,7 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
                       disabled={updateAccountNameMutation.isPending}
                       onClick={() => {
                         setAccountNameDraft(accountQuery.data.name);
+                        setExchangeRateTypeDraft(accountQuery.data.exchangeRateType);
                         setIsEditingName(false);
                       }}
                       type="button"
@@ -134,11 +162,12 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
                     className="rounded-xl border border-[#dbc9a3]/20 bg-[#dbc9a3]/8 px-3 py-2 text-xs font-medium text-[#e7ddc5] transition hover:bg-[#dbc9a3]/16"
                     onClick={() => {
                       setAccountNameDraft(accountQuery.data.name);
+                      setExchangeRateTypeDraft(accountQuery.data.exchangeRateType);
                       setIsEditingName(true);
                     }}
                     type="button"
                   >
-                    Edit name
+                    Edit account
                   </button>
                 )}
               </div>
@@ -236,7 +265,7 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
       </div>
       {showAddModal && categoriesQuery.data ? (
         <CreateTransactionModal
-          accounts={accountQuery.data ? [{ id: accountId, name: accountQuery.data.name, currencyCode: accountQuery.data.currencyCode, balanceInAccountCurrency: accountQuery.data.balanceInAccountCurrency, balanceUsd: accountQuery.data.balanceUsd, balanceArs: accountQuery.data.balanceArs } satisfies Account] : []}
+          accounts={accountQuery.data ? [{ id: accountId, name: accountQuery.data.name, currencyCode: accountQuery.data.currencyCode, exchangeRateType: accountQuery.data.exchangeRateType, balanceInAccountCurrency: accountQuery.data.balanceInAccountCurrency, balanceUsd: accountQuery.data.balanceUsd, balanceArs: accountQuery.data.balanceArs } satisfies Account] : []}
           categories={categoriesQuery.data}
           error={createTransactionMutation.error ? (createTransactionMutation.error as Error).message : null}
           initialAccountId={accountId}
@@ -248,6 +277,41 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
       ) : null}
     </main>
   );
+}
+
+const EXCHANGE_RATE_TYPES: ExchangeRateType[] = ["OFFICIAL", "CCL", "MEP", "BLUE", "CRYPTO"];
+
+function hasAccountUpdateChanges(
+  currentName: string,
+  draftName: string,
+  currentRateType: ExchangeRateType,
+  draftRateType: ExchangeRateType,
+) {
+  const normalizedName = draftName.trim();
+  const hasNameChange = normalizedName.length > 0 && normalizedName !== currentName;
+  const hasRateTypeChange = draftRateType !== currentRateType;
+
+  return hasNameChange || hasRateTypeChange;
+}
+
+function buildUpdateAccountPayload(
+  currentName: string,
+  draftName: string,
+  currentRateType: ExchangeRateType,
+  draftRateType: ExchangeRateType,
+): UpdateAccountRequest {
+  const payload: UpdateAccountRequest = {};
+  const normalizedName = draftName.trim();
+
+  if (normalizedName.length > 0 && normalizedName !== currentName) {
+    payload.name = normalizedName;
+  }
+
+  if (draftRateType !== currentRateType) {
+    payload.exchangeRateType = draftRateType;
+  }
+
+  return payload;
 }
 
 function formatTransactionType(transactionType: string) {

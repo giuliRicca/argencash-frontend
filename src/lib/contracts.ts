@@ -15,10 +15,13 @@ export type AuthenticatedUser = {
   email: string;
 };
 
+export type ExchangeRateType = "OFFICIAL" | "CCL" | "MEP" | "BLUE" | "CRYPTO";
+
 export type Account = {
   id: string;
   name: string;
   currencyCode: string;
+  exchangeRateType: ExchangeRateType;
   balanceInAccountCurrency: number;
   balanceUsd: number;
   balanceArs: number;
@@ -41,6 +44,7 @@ export type AccountDetail = {
   id: string;
   name: string;
   currencyCode: string;
+  exchangeRateType: ExchangeRateType;
   balanceInAccountCurrency: number;
   balanceUsd: number;
   balanceArs: number;
@@ -54,6 +58,11 @@ export type LiveExchangeRate = {
   sellRate: number;
   retrievedAtUtc: string;
   source: string;
+};
+
+export type LiveExchangeRateByType = {
+  rateType: ExchangeRateType;
+  rate: LiveExchangeRate;
 };
 
 export type AuthResponse = {
@@ -74,7 +83,8 @@ export type CreateAccountRequest = {
 };
 
 export type UpdateAccountRequest = {
-  name: string;
+  name?: string;
+  exchangeRateType?: ExchangeRateType;
 };
 
 export type CreateTransactionRequest = {
