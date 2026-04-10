@@ -6,11 +6,12 @@ import { useRouter } from "next/navigation";
 
 import { requestJson, postJson } from "@/lib/api";
 import { buildAuthorizationHeader } from "@/lib/auth-token";
-import { Account, AuthenticatedUser, LiveExchangeRateByType, CreateAccountRequest, Category, CreateTransactionRequest, ExchangeRateType } from "@/lib/contracts";
+import { Account, AuthenticatedUser, LiveExchangeRateByType, CreateAccountRequest, Category, CreateTransactionRequest, CreateTransferRequest, ExchangeRateType } from "@/lib/contracts";
 import { clearToken, useStoredToken } from "@/lib/storage";
 import { formatRate } from "@/components/formatters";
 import { useState } from "react";
 import { CreateTransactionModal } from "@/components/create-transaction-modal";
+import { CreateTransferModal } from "@/components/create-transfer-modal";
 import { MissingSessionState } from "@/components/missing-session-state";
 
 export function DashboardShell() {
@@ -19,6 +20,7 @@ export function DashboardShell() {
   const [displayCurrency, setDisplayCurrency] = useState<"USD" | "ARS">("USD");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showTransactionModal, setShowTransactionModal] = useState(false);
+  const [showTransferModal, setShowTransferModal] = useState(false);
 
   const queryClient = useQueryClient();
 
@@ -79,6 +81,17 @@ export function DashboardShell() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
       setShowTransactionModal(false);
+    },
+  });
+
+  const createTransferMutation = useMutation({
+    mutationFn: (data: CreateTransferRequest) =>
+      postJson<{ transferGroupId: string }>("/api/transfers", data, {
+        headers: { Authorization: buildAuthorizationHeader(accessToken) },
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["accounts", accessToken] });
+      setShowTransferModal(false);
     },
   });
 
@@ -147,6 +160,13 @@ export function DashboardShell() {
                 type="button"
               >
                 + Add Transaction
+              </button>
+              <button
+                className="rounded-2xl border border-[#5a6f95]/30 bg-[#5a6f95]/12 px-4 py-2 text-sm font-medium text-[#c8d4ec] transition hover:bg-[#5a6f95]/20"
+                onClick={() => setShowTransferModal(true)}
+                type="button"
+              >
+                Transfer
               </button>
               <select
                 className="rounded-2xl border border-[#56635b] bg-[#0f1412] px-3 py-2 text-sm text-stone-100 outline-none"
@@ -244,6 +264,15 @@ export function DashboardShell() {
           isLoading={createTransactionMutation.isPending}
           onClose={() => setShowTransactionModal(false)}
           onSubmit={(data) => createTransactionMutation.mutate(data)}
+        />
+      ) : null}
+      {showTransferModal && accountsQuery.data ? (
+        <CreateTransferModal
+          accounts={accountsQuery.data}
+          error={createTransferMutation.error ? (createTransferMutation.error as Error).message : null}
+          isLoading={createTransferMutation.isPending}
+          onClose={() => setShowTransferModal(false)}
+          onSubmit={(data) => createTransferMutation.mutate(data)}
         />
       ) : null}
     </main>

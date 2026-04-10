@@ -36,6 +36,9 @@ export type AccountTransaction = {
   convertedAmountUsd: number;
   convertedAmountArs: number;
   transactionDate: string;
+  transferGroupId: string | null;
+  counterpartyAccountId: string | null;
+  counterpartyAccountName: string | null;
   categoryId: string | null;
   categoryName: string | null;
 };
@@ -94,6 +97,14 @@ export type CreateTransactionRequest = {
   transactionType: string;
   description?: string | null;
   categoryId: string | null;
+};
+
+export type CreateTransferRequest = {
+  fromAccountId: string;
+  toAccountId: string;
+  amount: number;
+  currency: string;
+  description?: string | null;
 };
 
 export type Category = {

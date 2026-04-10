@@ -6,10 +6,11 @@ import { useState } from "react";
 
 import { deleteRequest, putJson, requestJson, postJson } from "@/lib/api";
 import { buildAuthorizationHeader } from "@/lib/auth-token";
-import { Account, AccountDetail, CreateTransactionRequest, Category, ExchangeRateType, UpdateAccountRequest } from "@/lib/contracts";
+import { Account, AccountDetail, CreateTransactionRequest, CreateTransferRequest, Category, ExchangeRateType, UpdateAccountRequest } from "@/lib/contracts";
 import { useStoredToken } from "@/lib/storage";
 import { formatDateTime, formatRate } from "@/components/formatters";
 import { CreateTransactionModal } from "@/components/create-transaction-modal";
+import { CreateTransferModal } from "@/components/create-transfer-modal";
 import { MissingSessionState } from "@/components/missing-session-state";
 
 type AccountDetailShellProps = {
@@ -20,6 +21,7 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
   const accessToken = useStoredToken();
   const queryClient = useQueryClient();
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showTransferModal, setShowTransferModal] = useState(false);
   const [deletingTransactionId, setDeletingTransactionId] = useState<string | null>(null);
   const [isEditingName, setIsEditingName] = useState(false);
   const [accountNameDraft, setAccountNameDraft] = useState("");
@@ -47,6 +49,17 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
     enabled: Boolean(accessToken),
   });
 
+  const accountsQuery = useQuery({
+    queryKey: ["accounts", accessToken],
+    queryFn: () =>
+      requestJson<Account[]>('/api/accounts', {
+        headers: {
+          Authorization: buildAuthorizationHeader(accessToken),
+        },
+      }),
+    enabled: Boolean(accessToken),
+  });
+
   const createTransactionMutation = useMutation({
     mutationFn: (data: CreateTransactionRequest) =>
       postJson<{ id: string }>("/api/transactions", data, {
@@ -56,6 +69,18 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
       queryClient.invalidateQueries({ queryKey: ["account-detail", accountId, accessToken] });
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
       setShowAddModal(false);
+    },
+  });
+
+  const createTransferMutation = useMutation({
+    mutationFn: (data: CreateTransferRequest) =>
+      postJson<{ transferGroupId: string }>("/api/transfers", data, {
+        headers: { Authorization: buildAuthorizationHeader(accessToken) },
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["account-detail", accountId, accessToken] });
+      queryClient.invalidateQueries({ queryKey: ["accounts", accessToken] });
+      setShowTransferModal(false);
     },
   });
 
@@ -205,6 +230,13 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
                   >
                     + Add
                   </button>
+                  <button
+                    className="rounded-2xl border border-[#5a6f95]/30 bg-[#5a6f95]/12 px-4 py-2 text-sm font-medium text-[#c8d4ec] transition hover:bg-[#5a6f95]/20"
+                    onClick={() => setShowTransferModal(true)}
+                    type="button"
+                  >
+                    Transfer
+                  </button>
                 </div>
               </div>
 
@@ -216,6 +248,7 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
                 ) : (
                   accountQuery.data.transactions.map((transaction) => {
                     const isExpense = transaction.transactionType === "EXPENSE";
+                    const isTransfer = Boolean(transaction.transferGroupId);
 
                     return (
                       <article key={transaction.id} className={`rounded-3xl border p-5 transition ${isExpense ? "border-rose-500/20 bg-rose-500/5" : "border-[#313935] bg-[#0f1412] hover:border-[#4a564f]"}`}>
@@ -223,6 +256,16 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
                           <div>
                             <p className="text-base font-semibold text-stone-100">{transaction.description}</p>
                             <p className="mt-1 text-sm text-stone-500">{formatDateTime(transaction.transactionDate)}</p>
+                            {isTransfer ? (
+                              <span className="mt-2 inline-block rounded-full border border-sky-400/30 bg-sky-500/12 px-3 py-1 text-xs font-medium text-sky-200">
+                                Transfer
+                              </span>
+                            ) : null}
+                            {isTransfer && transaction.counterpartyAccountName ? (
+                              <p className="mt-2 text-xs text-stone-400">
+                                {isExpense ? `To ${transaction.counterpartyAccountName}` : `From ${transaction.counterpartyAccountName}`}
+                              </p>
+                            ) : null}
                             {transaction.categoryName && (
                               <span className="mt-2 inline-block rounded-full border border-[#dbc9a3]/30 bg-[#dbc9a3]/10 px-3 py-1 text-xs text-[#dbc9a3]">
                                 {transaction.categoryName}
@@ -240,7 +283,11 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
                               className="mt-3 rounded-xl border border-rose-500/30 px-3 py-1 text-xs font-medium text-rose-200 transition hover:bg-rose-500/10 disabled:cursor-not-allowed disabled:opacity-60"
                               disabled={deleteTransactionMutation.isPending}
                               onClick={() => {
-                                const confirmed = window.confirm("Delete this transaction?");
+                                const confirmed = window.confirm(
+                                  isTransfer
+                                    ? "This is a transfer. Deleting it will remove both sides. Continue?"
+                                    : "Delete this transaction?",
+                                );
                                 if (!confirmed) {
                                   return;
                                 }
@@ -249,7 +296,7 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
                               }}
                               type="button"
                             >
-                              {deletingTransactionId === transaction.id ? "Deleting..." : "Delete"}
+                              {deletingTransactionId === transaction.id ? "Deleting..." : isTransfer ? "Delete transfer" : "Delete"}
                             </button>
                           </div>
                         </div>
@@ -274,6 +321,17 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
           lockAccount
           onClose={() => setShowAddModal(false)}
           onSubmit={(data) => createTransactionMutation.mutate(data)}
+        />
+      ) : null}
+      {showTransferModal && accountsQuery.data ? (
+        <CreateTransferModal
+          accounts={accountsQuery.data}
+          error={createTransferMutation.error ? (createTransferMutation.error as Error).message : null}
+          initialFromAccountId={accountId}
+          isLoading={createTransferMutation.isPending}
+          lockFromAccount
+          onClose={() => setShowTransferModal(false)}
+          onSubmit={(data) => createTransferMutation.mutate(data)}
         />
       ) : null}
     </main>
