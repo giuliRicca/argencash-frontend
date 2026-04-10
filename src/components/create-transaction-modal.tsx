@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 
 import { Account, Category, CreateTransactionRequest } from "@/lib/contracts";
+import { ui } from "@/lib/ui";
 
 type CreateTransactionModalProps = {
   accounts: Account[];
@@ -59,14 +60,14 @@ export function CreateTransactionModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="w-full max-w-md rounded-[2rem] border border-white/8 bg-[#131917] p-8 shadow-[0_24px_100px_rgba(0,0,0,0.4)]">
-        <h2 className="text-2xl font-semibold text-stone-100">Add Transaction</h2>
+      <div className="w-full max-w-md rounded-[var(--radius-panel)] border border-[var(--border-soft)] bg-[var(--surface-1)] p-8 shadow-[var(--shadow-hero)]">
+        <h2 className={`text-2xl font-semibold ${ui.textPrimary}`}>Add Transaction</h2>
 
         <form className="mt-6 grid gap-4" onSubmit={handleSubmit}>
           <div>
-            <label className="block text-sm text-stone-400">Account</label>
+            <label className={`block text-sm ${ui.textMuted}`}>Account</label>
             <select
-              className="mt-1 w-full rounded-2xl border border-[#56635b] bg-[#0f1412] px-4 py-3 text-stone-100 outline-none disabled:cursor-not-allowed disabled:opacity-70"
+              className={`mt-1 w-full ${ui.input} disabled:cursor-not-allowed disabled:opacity-70`}
               disabled={lockAccount}
               onChange={(event) => setSelectedAccountId(event.target.value)}
               value={effectiveAccountId}
@@ -82,7 +83,7 @@ export function CreateTransactionModal({
           <div className="flex gap-3">
             <button
               type="button"
-              className={`flex-1 rounded-2xl border px-4 py-3 font-medium transition ${transactionType === "EXPENSE" ? "border-rose-500/50 bg-rose-500/20 text-rose-200" : "border-[#56635b] text-stone-400 hover:border-[#6e7d74]"}`}
+              className={`flex-1 rounded-2xl border px-4 py-3 font-medium transition ${transactionType === "EXPENSE" ? "border-[var(--state-danger-border)] bg-[var(--state-danger-soft)] text-[var(--state-danger)]" : "border-[var(--border-strong)] text-[var(--text-muted)] hover:border-[var(--border-strong-hover)]"}`}
               onClick={() => {
                 setTransactionType("EXPENSE");
                 setCategoryId("");
@@ -92,7 +93,7 @@ export function CreateTransactionModal({
             </button>
             <button
               type="button"
-              className={`flex-1 rounded-2xl border px-4 py-3 font-medium transition ${transactionType === "INCOME" ? "border-emerald-500/50 bg-emerald-500/20 text-emerald-200" : "border-[#56635b] text-stone-400 hover:border-[#6e7d74]"}`}
+              className={`flex-1 rounded-2xl border px-4 py-3 font-medium transition ${transactionType === "INCOME" ? "border-[var(--state-success-border)] bg-[var(--state-success-soft)] text-[var(--state-success)]" : "border-[var(--border-strong)] text-[var(--text-muted)] hover:border-[var(--border-strong-hover)]"}`}
               onClick={() => {
                 setTransactionType("INCOME");
                 setCategoryId("");
@@ -104,9 +105,9 @@ export function CreateTransactionModal({
 
           <div className="grid grid-cols-[1fr_8rem] gap-3">
             <div>
-              <label className="block text-sm text-stone-400">Amount</label>
+              <label className={`block text-sm ${ui.textMuted}`}>Amount</label>
               <input
-                className="mt-1 w-full rounded-2xl border border-[#56635b] bg-[#0f1412] px-4 py-3 text-stone-100 outline-none"
+                className={`mt-1 w-full ${ui.input}`}
                 inputMode="decimal"
                 onChange={(event) => setAmount(normalizeAmountInput(event.target.value))}
                 placeholder="0.00"
@@ -117,9 +118,9 @@ export function CreateTransactionModal({
             </div>
 
             <div>
-              <label className="block text-sm text-stone-400">Currency</label>
+              <label className={`block text-sm ${ui.textMuted}`}>Currency</label>
               <select
-                className="mt-1 w-full rounded-2xl border border-[#56635b] bg-[#0f1412] px-4 py-3 text-stone-100 outline-none"
+                className={`mt-1 w-full ${ui.input}`}
                 onChange={(event) => setCurrency(event.target.value as "USD" | "ARS")}
                 value={currency}
               >
@@ -130,9 +131,9 @@ export function CreateTransactionModal({
           </div>
 
           <div>
-            <label className="block text-sm text-stone-400">Description (optional)</label>
+            <label className={`block text-sm ${ui.textMuted}`}>Description (optional)</label>
             <input
-              className="mt-1 w-full rounded-2xl border border-[#56635b] bg-[#0f1412] px-4 py-3 text-stone-100 outline-none"
+              className={`mt-1 w-full ${ui.input}`}
               onChange={(event) => setDescription(event.target.value)}
               placeholder="What was this for?"
               type="text"
@@ -141,9 +142,9 @@ export function CreateTransactionModal({
           </div>
 
           <div>
-            <label className="block text-sm text-stone-400">Category (optional)</label>
+            <label className={`block text-sm ${ui.textMuted}`}>Category (optional)</label>
             <select
-              className="mt-1 w-full rounded-2xl border border-[#56635b] bg-[#0f1412] px-4 py-3 text-stone-100 outline-none"
+              className={`mt-1 w-full ${ui.input}`}
               onChange={(event) => setCategoryId(event.target.value)}
               value={categoryId}
             >
@@ -156,18 +157,18 @@ export function CreateTransactionModal({
             </select>
           </div>
 
-          {error ? <p className="text-sm text-rose-200">{error}</p> : null}
+          {error ? <p className="text-sm text-[var(--state-danger)]">{error}</p> : null}
 
           <div className="mt-2 flex gap-3">
             <button
-              className="flex-1 rounded-2xl border border-[#56635b] px-4 py-3 font-medium text-stone-100 transition hover:border-[#6e7d74]"
+              className={`flex-1 ${ui.buttonBase} ${ui.buttonNeutral}`}
               onClick={onClose}
               type="button"
             >
               Cancel
             </button>
             <button
-              className="flex-1 rounded-2xl bg-[#dbc9a3] px-4 py-3 font-medium text-[#141915] transition hover:bg-[#e5d5b3] disabled:cursor-not-allowed disabled:opacity-70"
+              className={`flex-1 ${ui.buttonBase} ${ui.buttonSolidGold}`}
               disabled={isLoading || !canSubmit}
               type="submit"
             >

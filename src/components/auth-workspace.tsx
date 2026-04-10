@@ -11,6 +11,7 @@ import { requestJson } from "@/lib/api";
 import { normalizeAccessToken } from "@/lib/auth-token";
 import { AuthResponse, LoginRequest, RegisterRequest } from "@/lib/contracts";
 import { persistToken } from "@/lib/storage";
+import { ui } from "@/lib/ui";
 
 const loginSchema = z.object({
   email: z.email("Enter a valid email address."),
@@ -70,8 +71,8 @@ export function AuthWorkspace() {
 
   return (
     <div className="mx-auto flex min-h-screen max-w-md items-center px-4 py-10">
-      <section className="w-full rounded-[2rem] border border-white/8 bg-[#131917]/96 p-6 shadow-[0_24px_90px_rgba(0,0,0,0.24)] sm:p-8">
-        <div className="mb-6 flex rounded-full border border-[#36413b] bg-[#0f1412] p-1 text-sm">
+      <section className="w-full rounded-[var(--radius-panel)] border border-[var(--border-soft)] bg-[var(--surface-1)] p-6 shadow-[var(--shadow-hero)] sm:p-8">
+        <div className="mb-6 flex rounded-full border border-[var(--border-muted)] bg-[var(--surface-2)] p-1 text-sm">
           <ModeButton active={mode === "login"} onClick={() => setMode("login")}>Sign in</ModeButton>
           <ModeButton active={mode === "register"} onClick={() => setMode("register")}>Register</ModeButton>
         </div>
@@ -114,13 +115,13 @@ export function AuthWorkspace() {
 }
 
 function Heading({ title }: { title: string }) {
-  return <h1 className="mb-2 text-3xl font-semibold text-stone-100">{title}</h1>;
+  return <h1 className={`mb-2 text-3xl font-semibold ${ui.textPrimary}`}>{title}</h1>;
 }
 
 function ModeButton({ active, children, onClick }: { active: boolean; children: React.ReactNode; onClick: () => void }) {
   return (
     <button
-      className={active ? "flex-1 rounded-full bg-[#dbc9a3] px-4 py-2 font-medium text-[#141915]" : "flex-1 rounded-full px-4 py-2 font-medium text-stone-300"}
+      className={active ? "flex-1 rounded-full bg-[var(--accent-gold)] px-4 py-2 font-medium text-[var(--accent-gold-ink)]" : "flex-1 rounded-full px-4 py-2 font-medium text-[var(--text-secondary)]"}
       onClick={onClick}
       type="button"
     >
@@ -132,19 +133,19 @@ function ModeButton({ active, children, onClick }: { active: boolean; children: 
 function Field({ children, error, label }: { children: React.ReactNode; error?: string; label: string }) {
   return (
     <label className="block">
-      <span className="mb-2 block text-sm font-medium text-stone-200">{label}</span>
+      <span className={`mb-2 block text-sm font-medium ${ui.textPrimary}`}>{label}</span>
       {children}
-      {error ? <p className="mt-2 text-sm text-rose-300">{error}</p> : null}
+      {error ? <p className={`mt-2 text-sm ${ui.textExpense}`}>{error}</p> : null}
     </label>
   );
 }
 
 function InlineError({ message }: { message: string }) {
-  return <p className="rounded-2xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">{message}</p>;
+  return <p className={ui.errorBanner}>{message}</p>;
 }
 
 const inputClassName =
-  "w-full rounded-2xl border border-[#3e4942] bg-[#0f1412] px-4 py-3 text-stone-100 outline-none transition focus:border-emerald-300/60 focus:ring-2 focus:ring-emerald-300/10";
+  "w-full rounded-2xl border border-[var(--border-strong)] bg-[var(--surface-2)] px-4 py-3 text-[var(--text-primary)] outline-none transition focus:border-[var(--state-success-border)] focus:ring-2 focus:ring-[var(--state-success-soft)]";
 
 const primaryButtonClassName =
-  "w-full rounded-2xl bg-[#dbc9a3] px-4 py-3 font-medium text-[#141915] transition hover:bg-[#e5d5b3] disabled:cursor-not-allowed disabled:opacity-60";
+  "w-full rounded-2xl bg-[var(--accent-gold)] px-4 py-3 font-medium text-[var(--accent-gold-ink)] transition hover:bg-[var(--accent-gold-hover)] disabled:cursor-not-allowed disabled:opacity-60";

@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 
 import { Category, CreateCategoryRequest } from "@/lib/contracts";
+import { ui } from "@/lib/ui";
 
 type CategoriesManagerProps = {
   categories: Category[];
@@ -24,13 +25,13 @@ export function CategoriesManager({ categories, isCreating, onCreateCategory }: 
   };
 
   return (
-    <section className="rounded-[2rem] border border-white/8 bg-[#131917]/92 p-6 shadow-[0_20px_80px_rgba(0,0,0,0.24)] sm:p-8">
-      <h2 className="text-2xl font-semibold text-stone-100">Categories</h2>
+    <section className={ui.panel}>
+      <h2 className={`text-2xl font-semibold ${ui.textPrimary}`}>Categories</h2>
 
       <form className="mt-6 grid gap-3" onSubmit={handleSubmit}>
         <div className="flex flex-col gap-3 sm:flex-row">
           <input
-            className="flex-1 rounded-2xl border border-[#56635b] bg-[#0f1412] px-4 py-3 text-stone-100 outline-none"
+            className={`flex-1 ${ui.input}`}
             onChange={(event) => setName(event.target.value)}
             placeholder="Category name"
             required
@@ -38,7 +39,7 @@ export function CategoriesManager({ categories, isCreating, onCreateCategory }: 
             value={name}
           />
           <select
-            className="rounded-2xl border border-[#56635b] bg-[#0f1412] px-4 py-3 text-stone-100 outline-none"
+            className={ui.input}
             onChange={(event) => setType(event.target.value as "INCOME" | "EXPENSE")}
             value={type}
           >
@@ -46,7 +47,7 @@ export function CategoriesManager({ categories, isCreating, onCreateCategory }: 
             <option value="INCOME">Income</option>
           </select>
           <button
-            className="rounded-2xl bg-[#dbc9a3] px-4 py-3 font-medium text-[#141915] transition hover:bg-[#e5d5b3] disabled:cursor-not-allowed disabled:opacity-70"
+            className={`${ui.buttonBase} ${ui.buttonSolidGold} rounded-2xl px-4 py-3`}
             disabled={isCreating || name.trim().length === 0}
             type="submit"
           >
@@ -66,16 +67,16 @@ export function CategoriesManager({ categories, isCreating, onCreateCategory }: 
 function CategoryColumn({ title, categories }: { title: string; categories: Category[] }) {
   return (
     <div>
-      <h3 className="mb-3 text-sm font-medium text-stone-400">{title}</h3>
+      <h3 className={`mb-3 text-sm font-medium ${ui.textMuted}`}>{title}</h3>
       <div className="grid gap-2">
-        {categories.length === 0 ? <p className="text-sm text-stone-500">No categories.</p> : null}
+        {categories.length === 0 ? <p className={`text-sm ${ui.textMuted}`}>No categories.</p> : null}
         {categories.map((category) => (
           <div
             key={category.id}
-            className="flex items-center justify-between rounded-xl border border-[#313935] bg-[#0f1412] px-4 py-3"
+            className="flex items-center justify-between rounded-xl border border-[var(--border-muted)] bg-[var(--surface-2)] px-4 py-3"
           >
-            <span className="text-sm text-stone-200">{category.name}</span>
-            <span className="text-xs text-stone-500">{category.isSystem ? "System" : "Custom"}</span>
+            <span className={`text-sm ${ui.textPrimary}`}>{category.name}</span>
+            <span className={`text-xs ${ui.textMuted}`}>{category.isSystem ? "System" : "Custom"}</span>
           </div>
         ))}
       </div>

@@ -3,6 +3,47 @@
 :root {
   --background: #0d1512;
   --foreground: #f5f1e8;
+
+  --bg-page-gradient: linear-gradient(180deg, #0d1512 0%, #101917 50%, #0b100f 100%);
+  --bg-hero-gradient: linear-gradient(145deg, rgba(16, 24, 21, 0.96), rgba(20, 31, 27, 0.88));
+
+  --surface-1: rgba(19, 25, 23, 0.92);
+  --surface-2: #0f1412;
+  --surface-3: #111816;
+
+  --border-soft: rgba(255, 255, 255, 0.08);
+  --border-muted: #313935;
+  --border-dashed: #3f4944;
+  --border-strong: #56635b;
+  --border-strong-hover: #6e7d74;
+
+  --text-primary: #f5f5f4;
+  --text-secondary: #d6d3d1;
+  --text-muted: #a8a29e;
+
+  --accent-gold: #dbc9a3;
+  --accent-gold-ink: #141915;
+  --accent-gold-text: #e7ddc5;
+  --accent-gold-hover: #e5d5b3;
+  --accent-gold-soft: rgba(219, 201, 163, 0.1);
+  --accent-gold-border: rgba(219, 201, 163, 0.3);
+
+  --accent-info: #c8d4ec;
+  --accent-info-soft: rgba(90, 111, 149, 0.12);
+  --accent-info-border: rgba(90, 111, 149, 0.3);
+
+  --state-success: #d1fae5;
+  --state-success-soft: rgba(110, 231, 183, 0.1);
+  --state-success-border: rgba(110, 231, 183, 0.25);
+
+  --state-danger: #fecdd3;
+  --state-danger-soft: rgba(244, 63, 94, 0.1);
+  --state-danger-border: rgba(244, 63, 94, 0.22);
+
+  --shadow-panel: 0 20px 80px rgba(0, 0, 0, 0.24);
+  --shadow-hero: 0 24px 100px rgba(0, 0, 0, 0.28);
+
+  --radius-panel: 2rem;
 }
 
 @theme inline {

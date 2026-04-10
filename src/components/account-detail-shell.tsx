@@ -8,6 +8,7 @@ import { deleteRequest, putJson, requestJson, postJson } from "@/lib/api";
 import { buildAuthorizationHeader } from "@/lib/auth-token";
 import { Account, AccountDetail, CreateTransactionRequest, CreateTransferRequest, Category, ExchangeRateType, UpdateAccountRequest } from "@/lib/contracts";
 import { useStoredToken } from "@/lib/storage";
+import { ui } from "@/lib/ui";
 import { formatDateTime, formatRate } from "@/components/formatters";
 import { CreateTransactionModal } from "@/components/create-transaction-modal";
 import { CreateTransferModal } from "@/components/create-transfer-modal";
@@ -118,29 +119,29 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
   }
 
   return (
-    <main className="min-h-screen bg-[linear-gradient(180deg,_#0d1512_0%,_#101917_50%,_#0b100f_100%)] px-6 py-8 sm:px-10 lg:px-12">
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
+    <main className={ui.page}>
+      <div className={ui.shellNarrow}>
         <div className="flex items-center justify-between gap-4">
           <div>
-            <Link className="text-sm text-stone-400 transition hover:text-stone-200" href="/dashboard">
+            <Link className={`text-sm transition hover:text-[var(--text-secondary)] ${ui.textMuted}`} href="/dashboard">
               ← Dashboard
             </Link>
-            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-stone-100">{accountQuery.data?.name ?? "Account"}</h1>
+            <h1 className={`mt-3 text-3xl font-semibold tracking-tight ${ui.textPrimary}`}>{accountQuery.data?.name ?? "Account"}</h1>
             {accountQuery.data ? (
               <div className="mt-3 flex flex-wrap items-center gap-3">
-                <span className="rounded-full border border-[#dbc9a3]/20 bg-[#dbc9a3]/8 px-3 py-1 text-xs font-medium text-[#e7ddc5]">
+                <span className={ui.badgeGold}>
                   {accountQuery.data.exchangeRateType}
                 </span>
                 {isEditingName ? (
                   <>
                     <input
-                      className="w-72 rounded-2xl border border-[#56635b] bg-[#0f1412] px-4 py-2 text-sm text-stone-100 outline-none"
+                      className={`w-72 ${ui.input} py-2 text-sm`}
                       onChange={(event) => setAccountNameDraft(event.target.value)}
                       type="text"
                       value={accountNameDraft}
                     />
                     <select
-                      className="rounded-2xl border border-[#56635b] bg-[#0f1412] px-3 py-2 text-sm text-stone-100 outline-none"
+                      className={`${ui.select} py-2`}
                       onChange={(event) => setExchangeRateTypeDraft(event.target.value as ExchangeRateType)}
                       value={exchangeRateTypeDraft}
                     >
@@ -151,7 +152,7 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
                       ))}
                     </select>
                     <button
-                      className="rounded-xl bg-[#dbc9a3] px-3 py-2 text-xs font-medium text-[#141915] transition hover:bg-[#e5d5b3] disabled:cursor-not-allowed disabled:opacity-70"
+                      className={`${ui.buttonBase} ${ui.buttonSolidGold} rounded-xl px-3 py-2 text-xs`}
                       disabled={
                         updateAccountNameMutation.isPending ||
                         !hasAccountUpdateChanges(accountQuery.data.name, accountNameDraft, accountQuery.data.exchangeRateType, exchangeRateTypeDraft)
@@ -171,7 +172,7 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
                       {updateAccountNameMutation.isPending ? "Saving..." : "Save"}
                     </button>
                     <button
-                      className="rounded-xl border border-[#56635b] px-3 py-2 text-xs font-medium text-stone-100 transition hover:border-[#6e7d74]"
+                      className={`${ui.buttonBase} ${ui.buttonNeutral} rounded-xl px-3 py-2 text-xs`}
                       disabled={updateAccountNameMutation.isPending}
                       onClick={() => {
                         setAccountNameDraft(accountQuery.data.name);
@@ -185,7 +186,7 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
                   </>
                 ) : (
                   <button
-                    className="rounded-xl border border-[#dbc9a3]/20 bg-[#dbc9a3]/8 px-3 py-2 text-xs font-medium text-[#e7ddc5] transition hover:bg-[#dbc9a3]/16"
+                    className={`${ui.buttonBase} ${ui.buttonGold} rounded-xl px-3 py-2 text-xs`}
                     onClick={() => {
                       setAccountNameDraft(accountQuery.data.name);
                       setExchangeRateTypeDraft(accountQuery.data.exchangeRateType);
@@ -200,7 +201,7 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
             ) : null}
           </div>
           {accountQuery.data ? (
-            <span className="rounded-full border border-emerald-300/20 bg-emerald-300/8 px-3 py-1 text-sm font-medium text-emerald-100/90">
+            <span className={ui.badgeSuccess}>
               {accountQuery.data.currencyCode}
             </span>
           ) : null}
@@ -225,13 +226,13 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
                     {accountQuery.data.transactions.length}
                   </span>
                   <button
-                    className="rounded-2xl border border-[#dbc9a3]/20 bg-[#dbc9a3]/8 px-4 py-2 text-sm font-medium text-[#e7ddc5] transition hover:bg-[#dbc9a3]/16"
+                    className={`text-sm ${ui.buttonBase} ${ui.buttonGold}`}
                     onClick={() => setShowAddModal(true)}
                   >
                     + Add
                   </button>
                   <button
-                    className="rounded-2xl border border-[#5a6f95]/30 bg-[#5a6f95]/12 px-4 py-2 text-sm font-medium text-[#c8d4ec] transition hover:bg-[#5a6f95]/20"
+                    className={`text-sm ${ui.buttonBase} ${ui.buttonInfo}`}
                     onClick={() => setShowTransferModal(true)}
                     type="button"
                   >
@@ -242,7 +243,7 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
 
               <div className="mt-6 grid gap-4">
                 {accountQuery.data.transactions.length === 0 ? (
-                  <div className="rounded-3xl border border-dashed border-[#3f4944] bg-[#0f1412] p-6 text-sm text-stone-400">
+                  <div className={`rounded-3xl border border-dashed border-[var(--border-dashed)] bg-[var(--surface-2)] p-6 text-sm ${ui.textMuted}`}>
                     No transactions.
                   </div>
                 ) : (
@@ -251,36 +252,36 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
                     const isTransfer = Boolean(transaction.transferGroupId);
 
                     return (
-                      <article key={transaction.id} className={`rounded-3xl border p-5 transition ${isExpense ? "border-rose-500/20 bg-rose-500/5" : "border-[#313935] bg-[#0f1412] hover:border-[#4a564f]"}`}>
+                      <article key={transaction.id} className={`rounded-3xl border p-5 transition ${isExpense ? "border-[var(--state-danger-border)] bg-[var(--state-danger-soft)]" : "border-[var(--border-muted)] bg-[var(--surface-2)] hover:border-[var(--border-strong)]"}`}>
                         <div className="flex items-start justify-between gap-4">
                           <div>
-                            <p className="text-base font-semibold text-stone-100">{transaction.description}</p>
-                            <p className="mt-1 text-sm text-stone-500">{formatDateTime(transaction.transactionDate)}</p>
+                            <p className={`text-base font-semibold ${ui.textPrimary}`}>{transaction.description}</p>
+                            <p className={`mt-1 text-sm ${ui.textMuted}`}>{formatDateTime(transaction.transactionDate)}</p>
                             {isTransfer ? (
-                              <span className="mt-2 inline-block rounded-full border border-sky-400/30 bg-sky-500/12 px-3 py-1 text-xs font-medium text-sky-200">
+                              <span className={`mt-2 inline-block ${ui.badgeInfo}`}>
                                 Transfer
                               </span>
                             ) : null}
                             {isTransfer && transaction.counterpartyAccountName ? (
-                              <p className="mt-2 text-xs text-stone-400">
+                              <p className={`mt-2 text-xs ${ui.textMuted}`}>
                                 {isExpense ? `To ${transaction.counterpartyAccountName}` : `From ${transaction.counterpartyAccountName}`}
                               </p>
                             ) : null}
                             {transaction.categoryName && (
-                              <span className="mt-2 inline-block rounded-full border border-[#dbc9a3]/30 bg-[#dbc9a3]/10 px-3 py-1 text-xs text-[#dbc9a3]">
+                              <span className={`mt-2 inline-block ${ui.badgeGold}`}>
                                 {transaction.categoryName}
                               </span>
                             )}
                           </div>
                           <div className="text-right">
-                            <p className={`text-xs uppercase tracking-[0.18em] ${isExpense ? "text-rose-400" : "text-emerald-400"}`}>{formatTransactionType(transaction.transactionType)}</p>
-                            <p className={`text-base font-semibold ${isExpense ? "text-rose-200" : "text-stone-100"}`}>
+                            <p className={`text-xs uppercase tracking-[0.18em] ${isExpense ? ui.textExpense : ui.textIncome}`}>{formatTransactionType(transaction.transactionType)}</p>
+                            <p className={`text-base font-semibold ${isExpense ? "text-[var(--state-danger)]" : ui.textPrimary}`}>
                               {transaction.currency} {formatRate(transaction.amount)}
                             </p>
-                            <p className="mt-1 text-sm text-stone-400">USD {formatRate(transaction.convertedAmountUsd)}</p>
-                            <p className="text-sm text-stone-400">ARS {formatRate(transaction.convertedAmountArs)}</p>
+                            <p className={`mt-1 text-sm ${ui.textMuted}`}>USD {formatRate(transaction.convertedAmountUsd)}</p>
+                            <p className={`text-sm ${ui.textMuted}`}>ARS {formatRate(transaction.convertedAmountArs)}</p>
                             <button
-                              className="mt-3 rounded-xl border border-rose-500/30 px-3 py-1 text-xs font-medium text-rose-200 transition hover:bg-rose-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+                              className={`mt-3 rounded-xl px-3 py-1 text-xs font-medium ${ui.buttonBase} ${ui.buttonDanger}`}
                               disabled={deleteTransactionMutation.isPending}
                               onClick={() => {
                                 const confirmed = window.confirm(
@@ -378,18 +379,18 @@ function formatTransactionType(transactionType: string) {
 }
 
 function Card({ children }: { children: React.ReactNode }) {
-  return <section className="rounded-[2rem] border border-white/8 bg-[#131917]/92 p-6 shadow-[0_20px_80px_rgba(0,0,0,0.24)] sm:p-8">{children}</section>;
+  return <section className={ui.panel}>{children}</section>;
 }
 
 function BalanceCard({ label, value }: { label: string; value: string }) {
   return (
     <Card>
-      <p className="text-sm text-stone-500">{label}</p>
-      <p className="mt-2 text-3xl font-semibold tracking-tight text-stone-100">{value}</p>
+      <p className={`text-sm ${ui.textMuted}`}>{label}</p>
+      <p className={`mt-2 text-3xl font-semibold tracking-tight ${ui.textPrimary}`}>{value}</p>
     </Card>
   );
 }
 
 function ErrorBanner({ message }: { message: string }) {
-  return <div className="rounded-3xl border border-rose-500/20 bg-rose-500/10 px-5 py-4 text-sm text-rose-200">{message}</div>;
+  return <div className={ui.errorBanner}>{message}</div>;
 }
