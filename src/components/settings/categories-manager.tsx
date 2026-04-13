@@ -2,21 +2,73 @@
 
 import { useMemo, useState } from "react";
 
-import { Category, CreateCategoryRequest } from "@/lib/contracts";
+import { Budget, Category, CreateBudgetRequest, CreateCategoryRequest, UpdateBudgetRequest } from "@/lib/contracts";
+import { formatAmountInput, normalizeAmountInput, parseAmountInput } from "@/lib/amount-input";
 import { ui } from "@/lib/ui";
 
 type CategoriesManagerProps = {
   categories: Category[];
+  budgets: Budget[];
   isCreating: boolean;
+  isSavingBudget: boolean;
+  isDeletingBudget: boolean;
   onCreateCategory: (data: CreateCategoryRequest) => void;
+  onCreateBudget: (data: CreateBudgetRequest) => void;
+  onUpdateBudget: (budgetId: string, data: UpdateBudgetRequest) => void;
+  onDeleteBudget: (budgetId: string) => void;
 };
 
-export function CategoriesManager({ categories, isCreating, onCreateCategory }: CategoriesManagerProps) {
+type BudgetDraft = {
+  amount: string;
+  currency: "USD" | "ARS";
+  budgetId: string | null;
+};
+
+export function CategoriesManager({
+  categories,
+  budgets,
+  isCreating,
+  isSavingBudget,
+  isDeletingBudget,
+  onCreateCategory,
+  onCreateBudget,
+  onUpdateBudget,
+  onDeleteBudget,
+}: CategoriesManagerProps) {
   const [name, setName] = useState("");
   const [type, setType] = useState<"INCOME" | "EXPENSE">("EXPENSE");
+  const [budgetDrafts, setBudgetDrafts] = useState<Record<string, BudgetDraft>>({});
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
 
   const expenseCategories = useMemo(() => categories.filter((category) => category.type === "EXPENSE"), [categories]);
   const incomeCategories = useMemo(() => categories.filter((category) => category.type === "INCOME"), [categories]);
+
+  const baseBudgetDrafts = useMemo(() => {
+    const budgetsByCategoryId = new Map(budgets.map((budget) => [budget.categoryId, budget]));
+    const nextDrafts: Record<string, BudgetDraft> = {};
+
+    for (const category of expenseCategories) {
+      const budget = budgetsByCategoryId.get(category.id);
+      nextDrafts[category.id] = {
+        amount: budget ? String(budget.amount) : "",
+        currency: budget?.currency ?? "USD",
+        budgetId: budget?.id ?? null,
+      };
+    }
+
+    return nextDrafts;
+  }, [budgets, expenseCategories]);
+
+  const getDraft = (categoryId: string): BudgetDraft => {
+    const localDraft = budgetDrafts[categoryId];
+    const baseDraft = baseBudgetDrafts[categoryId];
+
+    return {
+      amount: localDraft?.amount ?? baseDraft?.amount ?? "",
+      currency: localDraft?.currency ?? baseDraft?.currency ?? "USD",
+      budgetId: localDraft?.budgetId ?? baseDraft?.budgetId ?? null,
+    };
+  };
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -24,9 +76,61 @@ export function CategoriesManager({ categories, isCreating, onCreateCategory }: 
     setName("");
   };
 
+  const updateDraft = (categoryId: string, nextDraft: Partial<BudgetDraft>) => {
+    const currentDraft = getDraft(categoryId);
+
+    setBudgetDrafts((current) => ({
+      ...current,
+      [categoryId]: {
+        amount: currentDraft.amount,
+        currency: currentDraft.currency,
+        budgetId: currentDraft.budgetId,
+        ...nextDraft,
+      },
+    }));
+  };
+
+  const saveBudget = (categoryId: string) => {
+    const draft = getDraft(categoryId);
+    if (!draft) {
+      return;
+    }
+
+    const amount = parseAmountInput(draft.amount);
+    if (amount <= 0) {
+      return;
+    }
+
+    const payload = {
+      categoryId,
+      amount,
+      currency: draft.currency,
+    } as const;
+
+    if (draft.budgetId) {
+      onUpdateBudget(draft.budgetId, payload);
+      setEditingCategoryId(null);
+      return;
+    }
+
+    onCreateBudget(payload);
+    setEditingCategoryId(null);
+  };
+
+  const removeBudget = (categoryId: string) => {
+    const draft = getDraft(categoryId);
+    if (!draft.budgetId) {
+      return;
+    }
+
+    onDeleteBudget(draft.budgetId);
+    setEditingCategoryId(null);
+  };
+
   return (
-    <section className={ui.panel}>
+    <section className={`${ui.panel} fade-up-enter-delay-2`} id="budgets">
       <h2 className={`text-2xl font-semibold ${ui.textPrimary}`}>Categories</h2>
+      <p className={`mt-2 text-sm ${ui.textMuted}`}>Set monthly budgets for expense categories.</p>
 
       <form className="mt-6 grid gap-3" onSubmit={handleSubmit}>
         <div className="flex flex-col gap-3 sm:flex-row">
@@ -57,14 +161,53 @@ export function CategoriesManager({ categories, isCreating, onCreateCategory }: 
       </form>
 
       <div className="mt-6 grid gap-6 md:grid-cols-2">
-        <CategoryColumn categories={expenseCategories} title="Expenses" />
+        <CategoryColumn
+          categories={expenseCategories}
+          isDeletingBudget={isDeletingBudget}
+          editingCategoryId={editingCategoryId}
+          isSavingBudget={isSavingBudget}
+          onDeleteBudget={removeBudget}
+          onEditCategory={(categoryId) => setEditingCategoryId(categoryId)}
+          onCancelEdit={() => setEditingCategoryId(null)}
+          onSaveBudget={saveBudget}
+          onUpdateDraft={updateDraft}
+          title="Expenses"
+          budgetDrafts={budgetDrafts}
+          getDraft={getDraft}
+        />
         <CategoryColumn categories={incomeCategories} title="Incomes" />
       </div>
     </section>
   );
 }
 
-function CategoryColumn({ title, categories }: { title: string; categories: Category[] }) {
+function CategoryColumn({
+  title,
+  categories,
+  budgetDrafts,
+  getDraft,
+  onUpdateDraft,
+  onSaveBudget,
+  onDeleteBudget,
+  onEditCategory,
+  onCancelEdit,
+  editingCategoryId,
+  isSavingBudget,
+  isDeletingBudget,
+}: {
+  title: string;
+  categories: Category[];
+  budgetDrafts?: Record<string, BudgetDraft>;
+  getDraft?: (categoryId: string) => BudgetDraft;
+  onUpdateDraft?: (categoryId: string, nextDraft: Partial<BudgetDraft>) => void;
+  onSaveBudget?: (categoryId: string) => void;
+  onDeleteBudget?: (categoryId: string) => void;
+  onEditCategory?: (categoryId: string) => void;
+  onCancelEdit?: () => void;
+  editingCategoryId?: string | null;
+  isSavingBudget?: boolean;
+  isDeletingBudget?: boolean;
+}) {
   return (
     <div>
       <h3 className={`mb-3 text-sm font-medium ${ui.textMuted}`}>{title}</h3>
@@ -73,10 +216,105 @@ function CategoryColumn({ title, categories }: { title: string; categories: Cate
         {categories.map((category) => (
           <div
             key={category.id}
-            className="flex items-center justify-between rounded-xl border border-[var(--border-muted)] bg-[var(--surface-2)] px-4 py-3"
+            className="flex items-center justify-between rounded-xl border border-[var(--border-muted)] bg-[var(--surface-2)] px-4 py-3 transition duration-200 hover:-translate-y-0.5 hover:border-[var(--border-strong)]"
           >
-            <span className={`text-sm ${ui.textPrimary}`}>{category.name}</span>
-            <span className={`text-xs ${ui.textMuted}`}>{category.isSystem ? "System" : "Custom"}</span>
+            <div className="min-w-0 flex-1">
+              <p className={`truncate text-sm ${ui.textPrimary}`}>{category.name}</p>
+              <p className={`text-xs ${ui.textMuted}`}>{category.isSystem ? "System" : "Custom"}</p>
+            </div>
+            {title === "Expenses" && budgetDrafts && onUpdateDraft && onSaveBudget && getDraft ? (
+              <div className="ml-3 min-w-[260px]">
+                {editingCategoryId === category.id ? (
+                  <div className="grid gap-2">
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                      <input
+                        aria-label={`Budget amount for ${category.name}`}
+                        className="w-28 rounded-xl border border-[var(--border-strong)] bg-[var(--surface-2)] px-3 py-2 text-sm text-[var(--text-primary)] transition placeholder:text-[var(--text-muted)]/75 focus-visible:border-[var(--state-success-border)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--state-success-soft)] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                        min="0"
+                        inputMode="decimal"
+                        onChange={(event) => onUpdateDraft(category.id, { amount: normalizeAmountInput(event.target.value) })}
+                        placeholder="0.00"
+                        step="0.01"
+                        type="text"
+                        value={formatAmountInput(getDraft(category.id).amount)}
+                      />
+                      <select
+                        className="rounded-xl border border-[var(--border-strong)] bg-[var(--surface-2)] px-3 py-2 text-sm text-[var(--text-primary)] transition focus-visible:border-[var(--state-success-border)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--state-success-soft)]"
+                        onChange={(event) => onUpdateDraft(category.id, { currency: event.target.value as "USD" | "ARS" })}
+                        value={getDraft(category.id).currency}
+                      >
+                        <option value="USD">USD</option>
+                        <option value="ARS">ARS</option>
+                      </select>
+                      <button
+                        className={`${ui.buttonBase} ${ui.buttonSolidGold} rounded-xl px-3 py-2 text-xs`}
+                        disabled={isSavingBudget || parseAmountInput(getDraft(category.id).amount) <= 0}
+                        onClick={() => onSaveBudget(category.id)}
+                        type="button"
+                      >
+                        {isSavingBudget ? "Saving..." : getDraft(category.id).budgetId ? "Save" : "Set"}
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                      {getDraft(category.id).budgetId && onDeleteBudget ? (
+                        <button
+                          className={`${ui.buttonBase} rounded-xl border border-[var(--border-muted)] px-3 py-2 text-xs text-[var(--state-danger)]`}
+                          disabled={isDeletingBudget}
+                          onClick={() => onDeleteBudget(category.id)}
+                          type="button"
+                        >
+                          Remove budget
+                        </button>
+                      ) : null}
+                      {onCancelEdit ? (
+                        <button
+                          className={`${ui.buttonBase} rounded-xl border border-[var(--border-muted)] px-3 py-2 text-xs ${ui.textMuted}`}
+                          onClick={onCancelEdit}
+                          type="button"
+                        >
+                          Cancel
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-end gap-2">
+                    {getDraft(category.id).budgetId ? (
+                      <>
+                        <span className={`text-xs ${ui.textMuted}`}>
+                          {getDraft(category.id).currency} {formatAmountInput(getDraft(category.id).amount || "0")} / month
+                        </span>
+                        <span className="rounded-full border border-[var(--state-success-border)] bg-[var(--state-success-soft)] px-2 py-1 text-[11px] font-medium text-[var(--state-success)]">
+                          Budget set
+                        </span>
+                        {onEditCategory ? (
+                          <button
+                            className={`${ui.buttonBase} rounded-xl border border-[var(--border-muted)] px-3 py-2 text-xs`}
+                            onClick={() => onEditCategory(category.id)}
+                            type="button"
+                          >
+                            Edit
+                          </button>
+                        ) : null}
+                      </>
+                    ) : (
+                      <>
+                        <span className={`text-xs ${ui.textMuted}`}>No budget set</span>
+                        {onEditCategory ? (
+                          <button
+                            className={`${ui.buttonBase} ${ui.buttonSolidGold} rounded-xl px-3 py-2 text-xs`}
+                            onClick={() => onEditCategory(category.id)}
+                            type="button"
+                          >
+                            Set
+                          </button>
+                        ) : null}
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : null}
           </div>
         ))}
       </div>

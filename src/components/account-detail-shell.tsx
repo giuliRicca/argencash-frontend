@@ -121,9 +121,9 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
   return (
     <main className={ui.page}>
       <div className={ui.shellNarrow}>
-        <div className="flex items-center justify-between gap-4">
+        <div className="fade-up-enter flex items-center justify-between gap-4">
           <div>
-            <Link className={`text-sm transition hover:text-[var(--text-secondary)] ${ui.textMuted}`} href="/dashboard">
+            <Link className={ui.linkMuted} href="/dashboard">
               ← Dashboard
             </Link>
             <h1 className={`mt-3 text-3xl font-semibold tracking-tight ${ui.textPrimary}`}>{accountQuery.data?.name ?? "Account"}</h1>
@@ -207,22 +207,22 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
           ) : null}
         </div>
 
-        {accountQuery.isLoading ? <Card><p className="text-sm text-stone-400">Loading account...</p></Card> : null}
+        {accountQuery.isLoading ? <Card><p className={`text-sm ${ui.textMuted}`}>Loading account...</p></Card> : null}
         {accountQuery.isError ? <ErrorBanner message="Account could not be loaded." /> : null}
         {updateAccountNameMutation.error ? <ErrorBanner message={(updateAccountNameMutation.error as Error).message} /> : null}
 
         {accountQuery.data ? (
           <>
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="fade-up-enter-delay-1 grid gap-4 md:grid-cols-2">
               <BalanceCard label="USD total" value={`USD ${formatRate(accountQuery.data.balanceUsd)}`} />
               <BalanceCard label="ARS total" value={`ARS ${formatRate(accountQuery.data.balanceArs)}`} />
             </div>
 
-            <Card>
+            <Card className="fade-up-enter-delay-2">
               <div className="flex items-center justify-between gap-4">
-                <h2 className="text-2xl font-semibold text-stone-100">Transactions</h2>
-                <div className="flex items-center gap-3">
-                  <span className="rounded-2xl border border-[#dbc9a3]/20 bg-[#dbc9a3]/8 px-4 py-2 text-sm text-[#e7ddc5]">
+                <h2 className={`text-2xl font-semibold ${ui.textPrimary}`}>Transactions</h2>
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className={ui.badgeGold}>
                     {accountQuery.data.transactions.length}
                   </span>
                   <button
@@ -252,7 +252,7 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
                     const isTransfer = Boolean(transaction.transferGroupId);
 
                     return (
-                      <article key={transaction.id} className={`rounded-3xl border p-5 transition ${isExpense ? "border-[var(--state-danger-border)] bg-[var(--state-danger-soft)]" : "border-[var(--border-muted)] bg-[var(--surface-2)] hover:border-[var(--border-strong)]"}`}>
+                      <article key={transaction.id} className={`rounded-3xl border p-5 transition duration-200 hover:-translate-y-0.5 ${isExpense ? "border-[var(--state-danger-border)] bg-[var(--state-danger-soft)]" : "border-[var(--border-muted)] bg-[var(--surface-2)] hover:border-[var(--border-strong)]"}`}>
                         <div className="flex items-start justify-between gap-4">
                           <div>
                             <p className={`text-base font-semibold ${ui.textPrimary}`}>{transaction.description}</p>
@@ -378,8 +378,8 @@ function formatTransactionType(transactionType: string) {
   return transactionType === "EXPENSE" ? "Expense" : "Income";
 }
 
-function Card({ children }: { children: React.ReactNode }) {
-  return <section className={ui.panel}>{children}</section>;
+function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return <section className={`${ui.panel} ${className}`.trim()}>{children}</section>;
 }
 
 function BalanceCard({ label, value }: { label: string; value: string }) {

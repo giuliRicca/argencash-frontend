@@ -6,11 +6,21 @@ import { useRouter } from "next/navigation";
 
 import { requestJson, postJson } from "@/lib/api";
 import { buildAuthorizationHeader } from "@/lib/auth-token";
-import { Account, AuthenticatedUser, LiveExchangeRateByType, CreateAccountRequest, Category, CreateTransactionRequest, CreateTransferRequest, ExchangeRateType } from "@/lib/contracts";
+import {
+  Account,
+  AuthenticatedUser,
+  Budget,
+  LiveExchangeRateByType,
+  CreateAccountRequest,
+  Category,
+  CreateTransactionRequest,
+  CreateTransferRequest,
+  ExchangeRateType,
+} from "@/lib/contracts";
 import { clearToken, useStoredToken } from "@/lib/storage";
 import { ui } from "@/lib/ui";
 import { formatRate } from "@/components/formatters";
-import { useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { CreateTransactionModal } from "@/components/create-transaction-modal";
 import { CreateTransferModal } from "@/components/create-transfer-modal";
 import { MissingSessionState } from "@/components/missing-session-state";
@@ -74,6 +84,17 @@ export function DashboardShell() {
     enabled: Boolean(accessToken),
   });
 
+  const budgetsQuery = useQuery({
+    queryKey: ["budgets", accessToken],
+    queryFn: () =>
+      requestJson<Budget[]>("/api/budgets", {
+        headers: {
+          Authorization: buildAuthorizationHeader(accessToken),
+        },
+      }),
+    enabled: Boolean(accessToken),
+  });
+
   const createTransactionMutation = useMutation({
     mutationFn: (data: CreateTransactionRequest) =>
       postJson<{ id: string }>("/api/transactions", data, {
@@ -81,6 +102,7 @@ export function DashboardShell() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      queryClient.invalidateQueries({ queryKey: ["budgets", accessToken] });
       setShowTransactionModal(false);
     },
   });
@@ -118,11 +140,11 @@ export function DashboardShell() {
       <div className={ui.shellWide}>
         <header className={ui.heroPanel}>
           <div>
-            <p className={`text-lg ${ui.textMuted}`}>Welcome</p>
+            <p className="text-2xl font-semibold text-[var(--text-secondary)]">Dashboard</p>
+            <p className={`mt-2 text-lg ${ui.textMuted}`}>Welcome</p>
             <h1 className={`text-3xl font-semibold tracking-tight sm:text-4xl ${ui.textPrimary}`}>
               {meQuery.data?.fullName ?? "Loading..."}
             </h1>
-            <p className="mt-2 text-2xl font-semibold text-[var(--text-secondary)]">Dashboard</p>
           </div>
 
           <div className="flex flex-wrap justify-end gap-3 sm:self-auto">
@@ -151,10 +173,10 @@ export function DashboardShell() {
 
         {meQuery.isError ? <ErrorBanner message="The current session could not be loaded." /> : null}
 
-        <section className={ui.panel}>
-          <div className="flex items-center justify-between gap-4">
-            <h2 className="text-2xl font-semibold text-stone-100">Portfolio total</h2>
-            <div className="flex items-center gap-3">
+        <section className={`${ui.panel} fade-up-enter-delay-1`}>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <h2 className={`text-2xl font-semibold ${ui.textPrimary}`}>Portfolio total</h2>
+            <div className="flex flex-wrap items-center gap-3">
               <button
                 className={`text-sm ${ui.buttonBase} ${ui.buttonGold}`}
                 onClick={() => setShowTransactionModal(true)}
@@ -169,6 +191,9 @@ export function DashboardShell() {
               >
                 Transfer
               </button>
+              <Link className={`text-sm ${ui.buttonBase} ${ui.buttonNeutral}`} href="/settings#budgets">
+                Manage Budgets
+              </Link>
               <select
                 className={ui.select}
                 onChange={(event) => setDisplayCurrency(event.target.value as "USD" | "ARS")}
@@ -188,9 +213,9 @@ export function DashboardShell() {
           </div>
         </section>
 
-        <section className={ui.panel}>
+        <section className={`${ui.panel} fade-up-enter-delay-1`}>
           <div className="flex items-center justify-between gap-4">
-            <h2 className="text-2xl font-semibold text-stone-100">Accounts</h2>
+            <h2 className={`text-2xl font-semibold ${ui.textPrimary}`}>Accounts</h2>
             <button
               className={`text-sm ${ui.buttonBase} ${ui.buttonGold}`}
               onClick={() => setShowCreateModal(true)}
@@ -205,7 +230,7 @@ export function DashboardShell() {
             {accountsQuery.data?.length === 0 ? <EmptyCard /> : null}
             {accountsQuery.data?.map((account) => (
               <Link key={account.id} href={`/accounts/${account.id}`}>
-                <article className="rounded-3xl border border-[var(--border-muted)] bg-[var(--surface-2)] p-5 transition hover:border-[var(--border-strong)]">
+                <article className="rounded-3xl border border-[var(--border-muted)] bg-[var(--surface-2)] p-5 transition duration-200 hover:-translate-y-0.5 hover:border-[var(--border-strong)] focus-within:border-[var(--border-strong)]">
                 <div className="flex items-center justify-between gap-4">
                   <div>
                     <p className={`text-lg font-semibold ${ui.textPrimary}`}>{account.name}</p>
@@ -227,7 +252,22 @@ export function DashboardShell() {
           </div>
         </section>
 
-        <section className={ui.panel}>
+        <section className={`${ui.panel} fade-up-enter-delay-2`}>
+          <h2 className={`text-2xl font-semibold ${ui.textPrimary}`}>Monthly budgets</h2>
+
+          <div className={`mt-5 ${ui.tile}`}>
+            {budgetsQuery.isLoading ? <LoadingCard label="Loading budgets..." /> : null}
+            {budgetsQuery.isError ? <ErrorBanner message="Budgets could not be loaded." /> : null}
+            {budgetsQuery.data?.length === 0 ? (
+              <div className={`rounded-3xl border border-dashed border-[var(--border-dashed)] bg-[var(--surface-2)] p-6 text-sm ${ui.textMuted}`}>
+                No budgets yet. Add category budgets in settings.
+              </div>
+            ) : null}
+            {budgetsQuery.data?.length ? <BudgetOverview budgets={budgetsQuery.data} /> : null}
+          </div>
+        </section>
+
+        <section className={`${ui.panel} fade-up-enter-delay-2`}>
           <h2 className={`text-2xl font-semibold ${ui.textPrimary}`}>USD / ARS rates</h2>
 
           <div className={`mt-5 ${ui.tile}`}>
@@ -304,6 +344,81 @@ function RateCard({ label, value }: { label: string; value: string }) {
   );
 }
 
+function BudgetOverview({ budgets }: { budgets: Budget[] }) {
+  const monthLabel = new Date(Date.UTC(budgets[0].year, budgets[0].month - 1, 1)).toLocaleString(undefined, {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+
+  const totalsByCurrency = budgets.reduce(
+    (accumulator, budget) => {
+      if (budget.currency === "USD") {
+        accumulator.totalBudgetUsd += budget.amount;
+        accumulator.totalSpentUsd += budget.spentAmount;
+      } else {
+        accumulator.totalBudgetArs += budget.amount;
+        accumulator.totalSpentArs += budget.spentAmount;
+      }
+
+      return accumulator;
+    },
+    {
+      totalBudgetUsd: 0,
+      totalSpentUsd: 0,
+      totalBudgetArs: 0,
+      totalSpentArs: 0,
+    },
+  );
+
+  return (
+    <div className="grid gap-4">
+      <div className="rounded-2xl border border-[var(--border-muted)] bg-[var(--surface-3)] p-4">
+        <p className={`text-xs uppercase tracking-[0.16em] ${ui.textMuted}`}>{monthLabel}</p>
+        <div className={`mt-2 flex flex-wrap gap-x-6 gap-y-1 text-sm ${ui.textPrimary}`}>
+          <span>
+            USD {formatRate(totalsByCurrency.totalSpentUsd)} / {formatRate(totalsByCurrency.totalBudgetUsd)}
+          </span>
+          <span>
+            ARS {formatRate(totalsByCurrency.totalSpentArs)} / {formatRate(totalsByCurrency.totalBudgetArs)}
+          </span>
+        </div>
+      </div>
+      {budgets.map((budget) => {
+        const progress = Math.min(100, Math.max(0, budget.usagePercentage));
+        const progressBarClass = budget.usagePercentage >= 100
+          ? "bg-[var(--state-danger)]"
+          : budget.usagePercentage >= 80
+            ? "bg-[var(--accent-gold)]"
+            : "bg-[var(--state-success)]";
+
+        return (
+          <article
+            key={budget.id}
+            className="rounded-2xl border border-[var(--border-muted)] bg-[var(--surface-3)] p-4"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <p className={`font-medium ${ui.textPrimary}`}>{budget.categoryName}</p>
+              <p className={`text-sm ${ui.textMuted}`}>
+                {budget.currency} {formatRate(budget.spentAmount)} / {formatRate(budget.amount)}
+              </p>
+            </div>
+            <div className="mt-3 h-2 rounded-full bg-[var(--surface-2)]">
+              <div className={`h-2 rounded-full ${progressBarClass}`} style={{ width: `${progress}%` }} />
+            </div>
+            <div className={`mt-2 flex items-center justify-between text-xs ${ui.textMuted}`}>
+              <span>{formatRate(budget.usagePercentage)}%</span>
+              <span>
+                Remaining: {budget.currency} {formatRate(budget.remainingAmount)}
+              </span>
+            </div>
+          </article>
+        );
+      })}
+    </div>
+  );
+}
+
 function LoadingCard({ label }: { label: string }) {
   return <div className={`rounded-3xl border border-[var(--border-muted)] bg-[var(--surface-2)] p-5 text-sm ${ui.textMuted}`}>{label}</div>;
 }
@@ -327,8 +442,22 @@ function CreateAccountModal({
   isLoading: boolean;
   error: string | null;
 }) {
+  const titleId = useId();
   const [name, setName] = useState("");
   const [currencyCode, setCurrencyCode] = useState("USD");
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [onClose]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -336,9 +465,15 @@ function CreateAccountModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="w-full max-w-md rounded-[var(--radius-panel)] border border-[var(--border-soft)] bg-[var(--surface-1)] p-8 shadow-[var(--shadow-hero)]">
-        <h2 className={`text-2xl font-semibold ${ui.textPrimary}`}>Create Account</h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+      <div
+        aria-labelledby={titleId}
+        aria-modal="true"
+        className="w-full max-w-md rounded-[var(--radius-panel)] border border-[var(--border-soft)] bg-[var(--surface-1)] p-8 shadow-[var(--shadow-hero)]"
+        onClick={(event) => event.stopPropagation()}
+        role="dialog"
+      >
+        <h2 className={`text-2xl font-semibold ${ui.textPrimary}`} id={titleId}>Create Account</h2>
         <form className="mt-6 grid gap-4" onSubmit={handleSubmit}>
           <div>
             <label className={`block text-sm ${ui.textMuted}`}>Account Name</label>

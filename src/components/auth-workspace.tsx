@@ -12,6 +12,7 @@ import { normalizeAccessToken } from "@/lib/auth-token";
 import { AuthResponse, LoginRequest, RegisterRequest } from "@/lib/contracts";
 import { persistToken } from "@/lib/storage";
 import { ui } from "@/lib/ui";
+import { BrandLogo } from "@/components/brand-logo";
 
 const loginSchema = z.object({
   email: z.email("Enter a valid email address."),
@@ -71,14 +72,18 @@ export function AuthWorkspace() {
 
   return (
     <div className="mx-auto flex min-h-screen max-w-md items-center px-4 py-10">
-      <section className="w-full rounded-[var(--radius-panel)] border border-[var(--border-soft)] bg-[var(--surface-1)] p-6 shadow-[var(--shadow-hero)] sm:p-8">
-        <div className="mb-6 flex rounded-full border border-[var(--border-muted)] bg-[var(--surface-2)] p-1 text-sm">
+      <section className="fade-up-enter w-full rounded-[var(--radius-panel)] border border-[var(--border-soft)] bg-[var(--surface-1)] p-6 shadow-[var(--shadow-hero)] sm:p-8">
+        <div className="fade-up-enter-delay-1 mb-6 text-center">
+          <BrandLogo className="text-4xl sm:text-5xl" />
+        </div>
+
+        <div className="fade-up-enter-delay-1 mb-6 flex rounded-full border border-[var(--border-muted)] bg-[var(--surface-2)] p-1 text-sm">
           <ModeButton active={mode === "login"} onClick={() => setMode("login")}>Sign in</ModeButton>
           <ModeButton active={mode === "register"} onClick={() => setMode("register")}>Register</ModeButton>
         </div>
 
         {mode === "login" ? (
-          <form className="space-y-4" onSubmit={loginForm.handleSubmit((values) => loginMutation.mutate(values))}>
+          <form className="fade-up-enter-delay-2 space-y-4" onSubmit={loginForm.handleSubmit((values) => loginMutation.mutate(values))}>
             <Heading title="Sign in" />
             <Field label="Email" error={loginForm.formState.errors.email?.message}>
               <input className={inputClassName} placeholder="email@example.com" {...loginForm.register("email")} />
@@ -92,7 +97,7 @@ export function AuthWorkspace() {
             {loginMutation.error ? <InlineError message={loginMutation.error.message} /> : null}
           </form>
         ) : (
-          <form className="space-y-4" onSubmit={registerForm.handleSubmit((values) => registerMutation.mutate(values))}>
+          <form className="fade-up-enter-delay-2 space-y-4" onSubmit={registerForm.handleSubmit((values) => registerMutation.mutate(values))}>
             <Heading title="Register" />
             <Field label="Full name" error={registerForm.formState.errors.fullName?.message}>
               <input className={inputClassName} placeholder="John Doe" {...registerForm.register("fullName")} />
@@ -121,7 +126,8 @@ function Heading({ title }: { title: string }) {
 function ModeButton({ active, children, onClick }: { active: boolean; children: React.ReactNode; onClick: () => void }) {
   return (
     <button
-      className={active ? "flex-1 rounded-full bg-[var(--accent-gold)] px-4 py-2 font-medium text-[var(--accent-gold-ink)]" : "flex-1 rounded-full px-4 py-2 font-medium text-[var(--text-secondary)]"}
+      aria-pressed={active}
+      className={active ? "flex-1 rounded-full bg-[var(--accent-gold)] px-4 py-2 font-medium text-[var(--accent-gold-ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-gold-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface-2)]" : "flex-1 rounded-full px-4 py-2 font-medium text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-gold-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface-2)]"}
       onClick={onClick}
       type="button"
     >
@@ -145,7 +151,7 @@ function InlineError({ message }: { message: string }) {
 }
 
 const inputClassName =
-  "w-full rounded-2xl border border-[var(--border-strong)] bg-[var(--surface-2)] px-4 py-3 text-[var(--text-primary)] outline-none transition focus:border-[var(--state-success-border)] focus:ring-2 focus:ring-[var(--state-success-soft)]";
+  `w-full ${ui.input}`;
 
 const primaryButtonClassName =
   "w-full rounded-2xl bg-[var(--accent-gold)] px-4 py-3 font-medium text-[var(--accent-gold-ink)] transition hover:bg-[var(--accent-gold-hover)] disabled:cursor-not-allowed disabled:opacity-60";

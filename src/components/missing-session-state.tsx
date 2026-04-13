@@ -1,11 +1,13 @@
 import Link from "next/link";
 
+import { ui } from "@/lib/ui";
+
 export function MissingSessionState() {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[linear-gradient(180deg,_#0d1512_0%,_#101917_50%,_#0b100f_100%)] px-6">
-      <div className="w-full max-w-xl rounded-[2rem] border border-white/8 bg-[#131917]/92 p-8 text-center shadow-[0_20px_80px_rgba(0,0,0,0.24)]">
-        <h1 className="text-3xl font-semibold text-stone-100">Sign in required</h1>
-        <Link className="mt-6 inline-flex rounded-2xl bg-[#dbc9a3] px-5 py-3 font-medium text-[#141915] transition hover:bg-[#e5d5b3]" href="/">
+    <main className="flex min-h-screen items-center justify-center bg-[var(--bg-page-gradient)] px-6">
+      <div className="fade-up-enter w-full max-w-xl rounded-[var(--radius-panel)] border border-[var(--border-soft)] bg-[var(--surface-1)] p-8 text-center shadow-[var(--shadow-panel)]">
+        <h1 className={`text-3xl font-semibold ${ui.textPrimary}`}>Sign in required</h1>
+        <Link className={`mt-6 inline-flex ${ui.buttonBase} ${ui.buttonSolidGold} px-5 py-3`} href="/" prefetch={false} replace>
           Back
         </Link>
       </div>

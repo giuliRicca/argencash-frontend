@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 
 import { Account, CreateTransferRequest } from "@/lib/contracts";
+import { formatAmountInput, normalizeAmountInput, parseAmountInput } from "@/lib/amount-input";
 import { ui } from "@/lib/ui";
 
 type CreateTransferModalProps = {
@@ -24,6 +25,7 @@ export function CreateTransferModal({
   onClose,
   onSubmit,
 }: CreateTransferModalProps) {
+  const titleId = useId();
   const initialFromAccount = useMemo(
     () => accounts.find((account) => account.id === initialFromAccountId) ?? accounts[0] ?? null,
     [accounts, initialFromAccountId],
@@ -40,9 +42,22 @@ export function CreateTransferModal({
   const [currency, setCurrency] = useState<"USD" | "ARS">("USD");
   const [description, setDescription] = useState("");
 
-  const parsedAmount = parseAmount(amount);
+  const parsedAmount = parseAmountInput(amount);
   const formattedAmount = formatAmountInput(amount);
   const canSubmit = Boolean(fromAccountId && toAccountId && fromAccountId !== toAccountId && parsedAmount > 0);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [onClose]);
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -57,9 +72,15 @@ export function CreateTransferModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="w-full max-w-md rounded-[var(--radius-panel)] border border-[var(--border-soft)] bg-[var(--surface-1)] p-8 shadow-[var(--shadow-hero)]">
-        <h2 className={`text-2xl font-semibold ${ui.textPrimary}`}>Transfer Between Accounts</h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+      <div
+        aria-labelledby={titleId}
+        aria-modal="true"
+        className="w-full max-w-md rounded-[var(--radius-panel)] border border-[var(--border-soft)] bg-[var(--surface-1)] p-8 shadow-[var(--shadow-hero)]"
+        onClick={(event) => event.stopPropagation()}
+        role="dialog"
+      >
+        <h2 className={`text-2xl font-semibold ${ui.textPrimary}`} id={titleId}>Transfer Between Accounts</h2>
 
         <form className="mt-6 grid gap-4" onSubmit={handleSubmit}>
           <div>
@@ -154,45 +175,4 @@ export function CreateTransferModal({
       </div>
     </div>
   );
-}
-
-function normalizeAmountInput(value: string) {
-  const sanitizedValue = value.replace(/,/g, "").replace(/[^\d.]/g, "");
-  const decimalSeparatorIndex = sanitizedValue.indexOf(".");
-
-  if (decimalSeparatorIndex === -1) {
-    return sanitizedValue;
-  }
-
-  const integerPart = sanitizedValue.slice(0, decimalSeparatorIndex);
-  const decimalPart = sanitizedValue.slice(decimalSeparatorIndex + 1).replace(/\./g, "").slice(0, 2);
-
-  return `${integerPart}.${decimalPart}`;
-}
-
-function formatAmountInput(value: string) {
-  if (!value) {
-    return "";
-  }
-
-  const [integerPart, decimalPart] = value.split(".");
-  const formattedIntegerPart = integerPart
-    ? new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(Number(integerPart))
-    : "0";
-
-  if (decimalPart === undefined) {
-    return formattedIntegerPart;
-  }
-
-  return `${formattedIntegerPart}.${decimalPart}`;
-}
-
-function parseAmount(value: string) {
-  if (!value) {
-    return 0;
-  }
-
-  const parsedValue = Number(value);
-
-  return Number.isFinite(parsedValue) ? parsedValue : 0;
 }

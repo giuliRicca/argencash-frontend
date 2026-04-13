@@ -119,3 +119,30 @@ export type CreateCategoryRequest = {
   name: string;
   type: string;
 };
+
+export type Budget = {
+  id: string;
+  categoryId: string;
+  categoryName: string;
+  amount: number;
+  currency: "USD" | "ARS";
+  spentAmount: number;
+  remainingAmount: number;
+  usagePercentage: number;
+  month: number;
+  year: number;
+  createdAtUtc: string;
+  updatedAtUtc: string;
+};
+
+export type CreateBudgetRequest = {
+  categoryId: string;
+  amount: number;
+  currency: "USD" | "ARS";
+};
+
+export type UpdateBudgetRequest = {
+  categoryId: string;
+  amount: number;
+  currency: "USD" | "ARS";
+};
