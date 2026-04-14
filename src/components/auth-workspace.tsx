@@ -9,7 +9,7 @@ import { z } from "zod";
 
 import { requestJson } from "@/lib/api";
 import { normalizeAccessToken } from "@/lib/auth-token";
-import { AuthResponse, LoginRequest, RegisterRequest } from "@/lib/contracts";
+import { AuthResponse, LoginRequest, RegisterRequest, RegistrationInitiateRequest, RegistrationInitiateResponse, ResendVerificationRequest } from "@/lib/contracts";
 import { persistToken } from "@/lib/storage";
 import { ui } from "@/lib/ui";
 import { BrandLogo } from "@/components/brand-logo";
@@ -30,7 +30,8 @@ type RegisterValues = z.infer<typeof registerSchema>;
 
 export function AuthWorkspace() {
   const router = useRouter();
-  const [mode, setMode] = useState<"login" | "register">("login");
+  const [mode, setMode] = useState<"login" | "register" | "verification-sent">("login");
+  const [registeredEmail, setRegisteredEmail] = useState<string>("");
 
   const loginForm = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
@@ -56,19 +57,39 @@ export function AuthWorkspace() {
     },
   });
 
-  const registerMutation = useMutation({
-    mutationFn: (values: RegisterRequest) =>
-      requestJson<AuthResponse>("/api/auth/register", {
+  const initiateRegisterMutation = useMutation({
+    mutationFn: (values: RegistrationInitiateRequest) =>
+      requestJson<RegistrationInitiateResponse>("/api/auth/register/initiate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(values),
       }),
-    onSuccess: (response) => {
-      persistToken(normalizeAccessToken(response.accessToken));
-      registerForm.reset();
-      router.push("/dashboard");
+    onSuccess: (response, variables) => {
+      setRegisteredEmail(variables.email);
+      setMode("verification-sent");
     },
   });
+
+  const resendMutation = useMutation({
+    mutationFn: (values: ResendVerificationRequest) =>
+      requestJson<RegistrationInitiateResponse>("/api/auth/register/resend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(values),
+      }),
+  });
+
+  const handleRegister = (values: RegisterValues) => {
+    initiateRegisterMutation.mutate({
+      fullName: values.fullName,
+      email: values.email,
+      password: values.password,
+    });
+  };
+
+  const handleResend = () => {
+    resendMutation.mutate({ email: registeredEmail });
+  };
 
   return (
     <div className="mx-auto flex min-h-screen max-w-md items-center px-4 py-10">
@@ -77,10 +98,12 @@ export function AuthWorkspace() {
           <BrandLogo className="text-4xl sm:text-5xl" />
         </div>
 
-        <div className="fade-up-enter-delay-1 mb-6 flex rounded-full border border-[var(--border-muted)] bg-[var(--surface-2)] p-1 text-sm">
-          <ModeButton active={mode === "login"} onClick={() => setMode("login")}>Sign in</ModeButton>
-          <ModeButton active={mode === "register"} onClick={() => setMode("register")}>Register</ModeButton>
-        </div>
+        {mode !== "verification-sent" && (
+          <div className="fade-up-enter-delay-1 mb-6 flex rounded-full border border-[var(--border-muted)] bg-[var(--surface-2)] p-1 text-sm">
+            <ModeButton active={mode === "login"} onClick={() => setMode("login")}>Sign in</ModeButton>
+            <ModeButton active={mode === "register"} onClick={() => setMode("register")}>Register</ModeButton>
+          </div>
+        )}
 
         {mode === "login" ? (
           <form className="fade-up-enter-delay-2 space-y-4" onSubmit={loginForm.handleSubmit((values) => loginMutation.mutate(values))}>
@@ -96,8 +119,8 @@ export function AuthWorkspace() {
             </button>
             {loginMutation.error ? <InlineError message={loginMutation.error.message} /> : null}
           </form>
-        ) : (
-          <form className="fade-up-enter-delay-2 space-y-4" onSubmit={registerForm.handleSubmit((values) => registerMutation.mutate(values))}>
+        ) : mode === "register" ? (
+          <form className="fade-up-enter-delay-2 space-y-4" onSubmit={registerForm.handleSubmit(handleRegister)}>
             <Heading title="Register" />
             <Field label="Full name" error={registerForm.formState.errors.fullName?.message}>
               <input className={inputClassName} placeholder="John Doe" {...registerForm.register("fullName")} />
@@ -108,11 +131,37 @@ export function AuthWorkspace() {
             <Field label="Password" error={registerForm.formState.errors.password?.message}>
               <input className={inputClassName} type="password" placeholder="StrongPass123!" {...registerForm.register("password")} />
             </Field>
-            <button className={primaryButtonClassName} disabled={registerMutation.isPending} type="submit">
-              {registerMutation.isPending ? "Creating account..." : "Create account"}
+            <button className={primaryButtonClassName} disabled={initiateRegisterMutation.isPending} type="submit">
+              {initiateRegisterMutation.isPending ? "Sending verification..." : "Create account"}
             </button>
-            {registerMutation.error ? <InlineError message={registerMutation.error.message} /> : null}
+            {initiateRegisterMutation.error ? <InlineError message={initiateRegisterMutation.error.message} /> : null}
           </form>
+        ) : (
+          <div className="fade-up-enter-delay-2 space-y-4">
+            <Heading title="Check your email" />
+            <p className={ui.textSecondary}>
+              We sent a verification link to <strong>{registeredEmail}</strong>.
+            </p>
+            <p className={ui.textSecondary}>
+              Click the link in the email to verify your account and complete registration.
+            </p>
+            <button
+              className={secondaryButtonClassName}
+              disabled={resendMutation.isPending}
+              onClick={handleResend}
+              type="button"
+            >
+              {resendMutation.isPending ? "Resending..." : "Resend verification email"}
+            </button>
+            <button
+              className={tertiaryButtonClassName}
+              onClick={() => setMode("register")}
+              type="button"
+            >
+              Go back
+            </button>
+            {resendMutation.error ? <InlineError message={resendMutation.error.message} /> : null}
+          </div>
         )}
       </section>
     </div>
@@ -155,3 +204,9 @@ const inputClassName =
 
 const primaryButtonClassName =
   "w-full rounded-2xl bg-[var(--accent-gold)] px-4 py-3 font-medium text-[var(--accent-gold-ink)] transition hover:bg-[var(--accent-gold-hover)] disabled:cursor-not-allowed disabled:opacity-60";
+
+const secondaryButtonClassName =
+  "w-full rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-2)] px-4 py-3 font-medium text-[var(--text-primary)] transition hover:bg-[var(--surface-3)] disabled:cursor-not-allowed disabled:opacity-60";
+
+const tertiaryButtonClassName =
+  "w-full rounded-2xl px-4 py-2 font-medium text-[var(--text-secondary)] transition hover:text-[var(--text-primary)]";
