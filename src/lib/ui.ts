@@ -8,6 +8,7 @@ export const ui = {
   tile: "rounded-3xl border border-[var(--border-muted)] bg-[var(--surface-2)] p-5",
 
   textMuted: "text-[var(--text-muted)]",
+  textSecondary: "text-[var(--text-secondary)]",
   textPrimary: "text-[var(--text-primary)]",
 
   input: "rounded-2xl border border-[var(--border-strong)] bg-[var(--surface-2)] px-4 py-3 text-[var(--text-primary)] transition placeholder:text-[var(--text-muted)]/75 focus-visible:border-[var(--state-success-border)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--state-success-soft)]",

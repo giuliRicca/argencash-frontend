@@ -6,12 +6,23 @@ import { useState } from "react";
 
 import { deleteRequest, putJson, requestJson, postJson } from "@/lib/api";
 import { buildAuthorizationHeader } from "@/lib/auth-token";
-import { Account, AccountDetail, CreateTransactionRequest, CreateTransferRequest, Category, ExchangeRateType, UpdateAccountRequest } from "@/lib/contracts";
+import {
+  Account,
+  AccountDetail,
+  AccountTransaction,
+  CreateTransactionRequest,
+  CreateTransferRequest,
+  Category,
+  ExchangeRateType,
+  UpdateAccountRequest,
+  UpdateTransactionRequest,
+} from "@/lib/contracts";
 import { useStoredToken } from "@/lib/storage";
 import { ui } from "@/lib/ui";
 import { formatDateTime, formatRate } from "@/components/formatters";
 import { CreateTransactionModal } from "@/components/create-transaction-modal";
 import { CreateTransferModal } from "@/components/create-transfer-modal";
+import { EditTransactionModal } from "@/components/edit-transaction-modal";
 import { MissingSessionState } from "@/components/missing-session-state";
 
 type AccountDetailShellProps = {
@@ -23,6 +34,7 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
   const queryClient = useQueryClient();
   const [showAddModal, setShowAddModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState<AccountTransaction | null>(null);
   const [deletingTransactionId, setDeletingTransactionId] = useState<string | null>(null);
   const [isEditingName, setIsEditingName] = useState(false);
   const [accountNameDraft, setAccountNameDraft] = useState("");
@@ -111,6 +123,18 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
     },
     onSettled: () => {
       setDeletingTransactionId(null);
+    },
+  });
+
+  const updateTransactionMutation = useMutation({
+    mutationFn: ({ transactionId, data }: { transactionId: string; data: UpdateTransactionRequest }) =>
+      putJson<void, UpdateTransactionRequest>(`/api/transactions/${transactionId}`, data, {
+        headers: { Authorization: buildAuthorizationHeader(accessToken) },
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["account-detail", accountId, accessToken] });
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      setEditingTransaction(null);
     },
   });
 
@@ -280,6 +304,20 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
                             </p>
                             <p className={`mt-1 text-sm ${ui.textMuted}`}>USD {formatRate(transaction.convertedAmountUsd)}</p>
                             <p className={`text-sm ${ui.textMuted}`}>ARS {formatRate(transaction.convertedAmountArs)}</p>
+                            {isTransfer ? (
+                              <span className={`mt-3 inline-block rounded-xl border px-3 py-1 text-xs ${ui.textMuted}`}>
+                                Transfer not editable
+                              </span>
+                            ) : (
+                              <button
+                                className={`mt-3 rounded-xl px-3 py-1 text-xs font-medium ${ui.buttonBase} ${ui.buttonGold}`}
+                                disabled={updateTransactionMutation.isPending}
+                                onClick={() => setEditingTransaction(transaction)}
+                                type="button"
+                              >
+                                Edit
+                              </button>
+                            )}
                             <button
                               className={`mt-3 rounded-xl px-3 py-1 text-xs font-medium ${ui.buttonBase} ${ui.buttonDanger}`}
                               disabled={deleteTransactionMutation.isPending}
@@ -333,6 +371,16 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
           lockFromAccount
           onClose={() => setShowTransferModal(false)}
           onSubmit={(data) => createTransferMutation.mutate(data)}
+        />
+      ) : null}
+      {editingTransaction && categoriesQuery.data ? (
+        <EditTransactionModal
+          categories={categoriesQuery.data}
+          error={updateTransactionMutation.error ? (updateTransactionMutation.error as Error).message : null}
+          isLoading={updateTransactionMutation.isPending}
+          onClose={() => setEditingTransaction(null)}
+          onSubmit={(data) => updateTransactionMutation.mutate({ transactionId: editingTransaction.id, data })}
+          transaction={editingTransaction}
         />
       ) : null}
     </main>

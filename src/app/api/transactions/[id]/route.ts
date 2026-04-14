@@ -42,3 +42,39 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     return proxyFailureResponse(targetUrl, error);
   }
 }
+
+export async function PUT(request: NextRequest, context: RouteContext) {
+  const incomingAuthorization = request.headers.get("Authorization") ?? "";
+  const normalizedToken = normalizeAccessToken(incomingAuthorization);
+
+  if (!normalizedToken) {
+    return NextResponse.json(
+      {
+        title: "Authentication failed.",
+        detail: "Missing access token.",
+        status: 401,
+      },
+      { status: 401 },
+    );
+  }
+
+  const { id } = await context.params;
+  const payload = await request.text();
+  const targetUrl = buildBackendUrl(`/api/transactions/${id}`);
+
+  try {
+    const response = await fetch(targetUrl, {
+      method: "PUT",
+      headers: {
+        Authorization: buildAuthorizationHeader(normalizedToken),
+        "Content-Type": "application/json",
+      },
+      body: payload,
+      cache: "no-store",
+    });
+
+    return forwardJson(response);
+  } catch (error) {
+    return proxyFailureResponse(targetUrl, error);
+  }
+}

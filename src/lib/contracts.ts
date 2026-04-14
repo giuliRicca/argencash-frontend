@@ -99,6 +99,12 @@ export type CreateTransactionRequest = {
   categoryId: string | null;
 };
 
+export type UpdateTransactionRequest = {
+  amount: number;
+  currency: string;
+  categoryId: string | null;
+};
+
 export type CreateTransferRequest = {
   fromAccountId: string;
   toAccountId: string;
@@ -145,4 +151,23 @@ export type UpdateBudgetRequest = {
   categoryId: string;
   amount: number;
   currency: "USD" | "ARS";
+};
+
+export type RegistrationInitiateRequest = {
+  fullName: string;
+  email: string;
+  password: string;
+};
+
+export type RegistrationInitiateResponse = {
+  message: string;
+  expiresAtUtc: string;
+};
+
+export type VerifyEmailRequest = {
+  verificationToken: string;
+};
+
+export type ResendVerificationRequest = {
+  email: string;
 };
