@@ -1,36 +1,89 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ArgenCash Frontend
 
-## Getting Started
+Recruiter-facing frontend for ArgenCash, a USD/ARS-focused personal finance platform. Built with modern React patterns and connected to the ArgenCash backend API.
 
-First, run the development server:
+## Product focus
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+ArgenCash helps users manage money in volatile dual-currency environments by combining:
+
+- account-level currency profiles
+- transaction and transfer workflows
+- budget tracking
+- live exchange-rate visibility
+
+## Tech stack
+
+- Next.js 16 (App Router)
+- React 19 + TypeScript
+- TanStack Query for server state
+- React Hook Form + Zod for form validation
+- Tailwind CSS v4
+
+## Main routes
+
+- `/` landing page and product overview
+- `/register`, `/verify`, `/login` auth flow
+- `/dashboard` portfolio and operations overview
+- `/accounts/[id]` account detail and transaction context
+- `/settings` account and app settings
+
+## API proxy routes
+
+Frontend route handlers proxy requests to the backend under `src/app/api/**`, including:
+
+- auth (`/api/auth/*`)
+- accounts (`/api/accounts*`)
+- transactions (`/api/transactions*`)
+- transfers (`/api/transfers`)
+- budgets (`/api/budgets*`)
+- categories (`/api/categories`)
+- exchange rates (`/api/exchange-rates/live`, `/api/exchange-rates/live/batch`)
+
+## Local setup
+
+### Prerequisites
+
+- Node.js 20+
+- npm 10+
+- Running ArgenCash backend API
+
+### 1) Configure environment
+
+Create `.env` from `.env.example` and set:
+
+```env
+ARGENCASH_API_BASE_URL=http://localhost:5018
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2) Install and run
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm install
+npm run dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+App URL: `http://localhost:3000`
 
-## Learn More
+## Quality checks
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm run lint
+npm run build
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Docker
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+docker build -t argencash-frontend .
+docker run --rm -p 3000:3000 argencash-frontend
+```
 
-## Deploy on Vercel
+## Security and public repo notes
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- Keep `.env` local only; do not commit environment-specific values.
+- Use a non-production backend URL for demos.
+- If you publish a live demo, configure CORS and auth token handling carefully.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## License
+
+This project is licensed under the MIT License. See `LICENSE`.
