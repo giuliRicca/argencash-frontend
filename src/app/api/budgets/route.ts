@@ -4,13 +4,7 @@ import { buildAuthorizationHeader, normalizeAccessToken } from "@/lib/auth-token
 import { buildBackendUrl } from "@/lib/backend-url";
 import { forwardJson, proxyFailureResponse } from "@/lib/proxy-response";
 
-type RouteContext = {
-  params: Promise<{
-    id: string;
-  }>;
-};
-
-export async function DELETE(request: NextRequest, context: RouteContext) {
+export async function GET(request: NextRequest) {
   const incomingAuthorization = request.headers.get("Authorization") ?? "";
   const normalizedToken = normalizeAccessToken(incomingAuthorization);
 
@@ -25,12 +19,10 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     );
   }
 
-  const { id } = await context.params;
-  const targetUrl = buildBackendUrl(`/api/transactions/${id}`);
+  const targetUrl = buildBackendUrl("/api/budgets");
 
   try {
     const response = await fetch(targetUrl, {
-      method: "DELETE",
       headers: {
         Authorization: buildAuthorizationHeader(normalizedToken),
       },
@@ -43,7 +35,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
   }
 }
 
-export async function PUT(request: NextRequest, context: RouteContext) {
+export async function POST(request: NextRequest) {
   const incomingAuthorization = request.headers.get("Authorization") ?? "";
   const normalizedToken = normalizeAccessToken(incomingAuthorization);
 
@@ -58,13 +50,12 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     );
   }
 
-  const { id } = await context.params;
   const payload = await request.text();
-  const targetUrl = buildBackendUrl(`/api/transactions/${id}`);
+  const targetUrl = buildBackendUrl("/api/budgets");
 
   try {
     const response = await fetch(targetUrl, {
-      method: "PUT",
+      method: "POST",
       headers: {
         Authorization: buildAuthorizationHeader(normalizedToken),
         "Content-Type": "application/json",

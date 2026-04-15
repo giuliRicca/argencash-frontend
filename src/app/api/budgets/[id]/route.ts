@@ -10,39 +10,6 @@ type RouteContext = {
   }>;
 };
 
-export async function DELETE(request: NextRequest, context: RouteContext) {
-  const incomingAuthorization = request.headers.get("Authorization") ?? "";
-  const normalizedToken = normalizeAccessToken(incomingAuthorization);
-
-  if (!normalizedToken) {
-    return NextResponse.json(
-      {
-        title: "Authentication failed.",
-        detail: "Missing access token.",
-        status: 401,
-      },
-      { status: 401 },
-    );
-  }
-
-  const { id } = await context.params;
-  const targetUrl = buildBackendUrl(`/api/transactions/${id}`);
-
-  try {
-    const response = await fetch(targetUrl, {
-      method: "DELETE",
-      headers: {
-        Authorization: buildAuthorizationHeader(normalizedToken),
-      },
-      cache: "no-store",
-    });
-
-    return forwardJson(response);
-  } catch (error) {
-    return proxyFailureResponse(targetUrl, error);
-  }
-}
-
 export async function PUT(request: NextRequest, context: RouteContext) {
   const incomingAuthorization = request.headers.get("Authorization") ?? "";
   const normalizedToken = normalizeAccessToken(incomingAuthorization);
@@ -60,7 +27,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
 
   const { id } = await context.params;
   const payload = await request.text();
-  const targetUrl = buildBackendUrl(`/api/transactions/${id}`);
+  const targetUrl = buildBackendUrl(`/api/budgets/${id}`);
 
   try {
     const response = await fetch(targetUrl, {
@@ -70,6 +37,39 @@ export async function PUT(request: NextRequest, context: RouteContext) {
         "Content-Type": "application/json",
       },
       body: payload,
+      cache: "no-store",
+    });
+
+    return forwardJson(response);
+  } catch (error) {
+    return proxyFailureResponse(targetUrl, error);
+  }
+}
+
+export async function DELETE(request: NextRequest, context: RouteContext) {
+  const incomingAuthorization = request.headers.get("Authorization") ?? "";
+  const normalizedToken = normalizeAccessToken(incomingAuthorization);
+
+  if (!normalizedToken) {
+    return NextResponse.json(
+      {
+        title: "Authentication failed.",
+        detail: "Missing access token.",
+        status: 401,
+      },
+      { status: 401 },
+    );
+  }
+
+  const { id } = await context.params;
+  const targetUrl = buildBackendUrl(`/api/budgets/${id}`);
+
+  try {
+    const response = await fetch(targetUrl, {
+      method: "DELETE",
+      headers: {
+        Authorization: buildAuthorizationHeader(normalizedToken),
+      },
       cache: "no-store",
     });
 

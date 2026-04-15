@@ -2,50 +2,49 @@
 
 import { useEffect, useId, useMemo, useState } from "react";
 
-import { Account, Category, CreateTransactionRequest } from "@/lib/contracts";
+import { Account, CreateTransferRequest } from "@/lib/contracts";
 import { formatAmountInput, normalizeAmountInput, parseAmountInput } from "@/lib/amount-input";
 import { ui } from "@/lib/ui";
 
-type CreateTransactionModalProps = {
+type CreateTransferModalProps = {
   accounts: Account[];
-  categories: Category[];
-  initialAccountId?: string;
-  lockAccount?: boolean;
+  initialFromAccountId?: string;
+  lockFromAccount?: boolean;
   isLoading: boolean;
   error: string | null;
   onClose: () => void;
-  onSubmit: (data: CreateTransactionRequest) => void;
+  onSubmit: (data: CreateTransferRequest) => void;
 };
 
-export function CreateTransactionModal({
+export function CreateTransferModal({
   accounts,
-  categories,
-  initialAccountId,
-  lockAccount = false,
+  initialFromAccountId,
+  lockFromAccount = false,
   isLoading,
   error,
   onClose,
   onSubmit,
-}: CreateTransactionModalProps) {
+}: CreateTransferModalProps) {
   const titleId = useId();
-  const initialAccount = useMemo(
-    () => accounts.find((account) => account.id === initialAccountId) ?? accounts[0] ?? null,
-    [accounts, initialAccountId],
+  const initialFromAccount = useMemo(
+    () => accounts.find((account) => account.id === initialFromAccountId) ?? accounts[0] ?? null,
+    [accounts, initialFromAccountId],
   );
 
-  const [selectedAccountId, setSelectedAccountId] = useState(initialAccount?.id ?? "");
+  const initialToAccount = useMemo(
+    () => accounts.find((account) => account.id !== initialFromAccount?.id) ?? accounts[0] ?? null,
+    [accounts, initialFromAccount?.id],
+  );
+
+  const [fromAccountId, setFromAccountId] = useState(initialFromAccount?.id ?? "");
+  const [toAccountId, setToAccountId] = useState(initialToAccount?.id ?? "");
   const [amount, setAmount] = useState("");
   const [currency, setCurrency] = useState<"USD" | "ARS">("USD");
   const [description, setDescription] = useState("");
-  const [transactionType, setTransactionType] = useState<"INCOME" | "EXPENSE">("EXPENSE");
-  const [categoryId, setCategoryId] = useState<string>("");
 
-  const filteredCategories = categories.filter((category) => category.type === transactionType);
-  const effectiveAccountId = selectedAccountId || initialAccount?.id || "";
   const parsedAmount = parseAmountInput(amount);
   const formattedAmount = formatAmountInput(amount);
-
-  const canSubmit = Boolean(effectiveAccountId && parsedAmount > 0);
+  const canSubmit = Boolean(fromAccountId && toAccountId && fromAccountId !== toAccountId && parsedAmount > 0);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -64,12 +63,11 @@ export function CreateTransactionModal({
     event.preventDefault();
 
     onSubmit({
-      accountId: effectiveAccountId,
+      fromAccountId,
+      toAccountId,
       amount: parsedAmount,
       currency,
-      transactionType,
-      description: description.trim(),
-      categoryId: categoryId || null,
+      description: description.trim() || null,
     });
   };
 
@@ -82,16 +80,16 @@ export function CreateTransactionModal({
         onClick={(event) => event.stopPropagation()}
         role="dialog"
       >
-        <h2 className={`text-2xl font-semibold ${ui.textPrimary}`} id={titleId}>Add Transaction</h2>
+        <h2 className={`text-2xl font-semibold ${ui.textPrimary}`} id={titleId}>Transfer Between Accounts</h2>
 
         <form className="mt-6 grid gap-4" onSubmit={handleSubmit}>
           <div>
-            <label className={`block text-sm ${ui.textMuted}`}>Account</label>
+            <label className={`block text-sm ${ui.textMuted}`}>From account</label>
             <select
               className={`mt-1 w-full ${ui.input} disabled:cursor-not-allowed disabled:opacity-70`}
-              disabled={lockAccount}
-              onChange={(event) => setSelectedAccountId(event.target.value)}
-              value={effectiveAccountId}
+              disabled={lockFromAccount}
+              onChange={(event) => setFromAccountId(event.target.value)}
+              value={fromAccountId}
             >
               {accounts.map((account) => (
                 <option key={account.id} value={account.id}>
@@ -101,27 +99,19 @@ export function CreateTransactionModal({
             </select>
           </div>
 
-          <div className="flex gap-3">
-            <button
-              type="button"
-              className={`flex-1 rounded-2xl border px-4 py-3 font-medium transition ${transactionType === "EXPENSE" ? "border-[var(--state-danger-border)] bg-[var(--state-danger-soft)] text-[var(--state-danger)]" : "border-[var(--border-strong)] text-[var(--text-muted)] hover:border-[var(--border-strong-hover)]"}`}
-              onClick={() => {
-                setTransactionType("EXPENSE");
-                setCategoryId("");
-              }}
+          <div>
+            <label className={`block text-sm ${ui.textMuted}`}>To account</label>
+            <select
+              className={`mt-1 w-full ${ui.input}`}
+              onChange={(event) => setToAccountId(event.target.value)}
+              value={toAccountId}
             >
-              Expense
-            </button>
-            <button
-              type="button"
-              className={`flex-1 rounded-2xl border px-4 py-3 font-medium transition ${transactionType === "INCOME" ? "border-[var(--state-success-border)] bg-[var(--state-success-soft)] text-[var(--state-success)]" : "border-[var(--border-strong)] text-[var(--text-muted)] hover:border-[var(--border-strong-hover)]"}`}
-              onClick={() => {
-                setTransactionType("INCOME");
-                setCategoryId("");
-              }}
-            >
-              Income
-            </button>
+              {accounts.map((account) => (
+                <option key={account.id} value={account.id}>
+                  {account.name}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="grid grid-cols-[1fr_8rem] gap-3">
@@ -156,28 +146,13 @@ export function CreateTransactionModal({
             <input
               className={`mt-1 w-full ${ui.input}`}
               onChange={(event) => setDescription(event.target.value)}
-              placeholder="What was this for?"
+              placeholder="Transfer note"
               type="text"
               value={description}
             />
           </div>
 
-          <div>
-            <label className={`block text-sm ${ui.textMuted}`}>Category (optional)</label>
-            <select
-              className={`mt-1 w-full ${ui.input}`}
-              onChange={(event) => setCategoryId(event.target.value)}
-              value={categoryId}
-            >
-              <option value="">No category</option>
-              {filteredCategories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
+          {fromAccountId === toAccountId ? <p className="text-sm text-[var(--state-danger)]">Select two different accounts.</p> : null}
           {error ? <p className="text-sm text-[var(--state-danger)]">{error}</p> : null}
 
           <div className="mt-2 flex gap-3">
@@ -193,7 +168,7 @@ export function CreateTransactionModal({
               disabled={isLoading || !canSubmit}
               type="submit"
             >
-              {isLoading ? "Creating..." : "Create"}
+              {isLoading ? "Transferring..." : "Transfer"}
             </button>
           </div>
         </form>

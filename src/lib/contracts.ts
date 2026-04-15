@@ -36,6 +36,9 @@ export type AccountTransaction = {
   convertedAmountUsd: number;
   convertedAmountArs: number;
   transactionDate: string;
+  transferGroupId: string | null;
+  counterpartyAccountId: string | null;
+  counterpartyAccountName: string | null;
   categoryId: string | null;
   categoryName: string | null;
 };
@@ -96,6 +99,20 @@ export type CreateTransactionRequest = {
   categoryId: string | null;
 };
 
+export type UpdateTransactionRequest = {
+  amount: number;
+  currency: string;
+  categoryId: string | null;
+};
+
+export type CreateTransferRequest = {
+  fromAccountId: string;
+  toAccountId: string;
+  amount: number;
+  currency: string;
+  description?: string | null;
+};
+
 export type Category = {
   id: string;
   name: string;
@@ -107,4 +124,50 @@ export type Category = {
 export type CreateCategoryRequest = {
   name: string;
   type: string;
+};
+
+export type Budget = {
+  id: string;
+  categoryId: string;
+  categoryName: string;
+  amount: number;
+  currency: "USD" | "ARS";
+  spentAmount: number;
+  remainingAmount: number;
+  usagePercentage: number;
+  month: number;
+  year: number;
+  createdAtUtc: string;
+  updatedAtUtc: string;
+};
+
+export type CreateBudgetRequest = {
+  categoryId: string;
+  amount: number;
+  currency: "USD" | "ARS";
+};
+
+export type UpdateBudgetRequest = {
+  categoryId: string;
+  amount: number;
+  currency: "USD" | "ARS";
+};
+
+export type RegistrationInitiateRequest = {
+  fullName: string;
+  email: string;
+  password: string;
+};
+
+export type RegistrationInitiateResponse = {
+  message: string;
+  expiresAtUtc: string;
+};
+
+export type VerifyEmailRequest = {
+  verificationToken: string;
+};
+
+export type ResendVerificationRequest = {
+  email: string;
 };

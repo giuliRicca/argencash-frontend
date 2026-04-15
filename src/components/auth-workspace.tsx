@@ -9,8 +9,10 @@ import { z } from "zod";
 
 import { requestJson } from "@/lib/api";
 import { normalizeAccessToken } from "@/lib/auth-token";
-import { AuthResponse, LoginRequest, RegisterRequest } from "@/lib/contracts";
+import { AuthResponse, LoginRequest, RegistrationInitiateRequest, RegistrationInitiateResponse, ResendVerificationRequest } from "@/lib/contracts";
 import { persistToken } from "@/lib/storage";
+import { ui } from "@/lib/ui";
+import { BrandLogo } from "@/components/brand-logo";
 
 const loginSchema = z.object({
   email: z.email("Enter a valid email address."),
@@ -26,9 +28,14 @@ const registerSchema = z.object({
 type LoginValues = z.infer<typeof loginSchema>;
 type RegisterValues = z.infer<typeof registerSchema>;
 
-export function AuthWorkspace() {
+type AuthWorkspaceProps = {
+  initialMode?: "login" | "register";
+};
+
+export function AuthWorkspace({ initialMode = "login" }: AuthWorkspaceProps) {
   const router = useRouter();
-  const [mode, setMode] = useState<"login" | "register">("login");
+  const [mode, setMode] = useState<"login" | "register" | "verification-sent">(initialMode);
+  const [registeredEmail, setRegisteredEmail] = useState<string>("");
 
   const loginForm = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
@@ -54,30 +61,56 @@ export function AuthWorkspace() {
     },
   });
 
-  const registerMutation = useMutation({
-    mutationFn: (values: RegisterRequest) =>
-      requestJson<AuthResponse>("/api/auth/register", {
+  const initiateRegisterMutation = useMutation({
+    mutationFn: (values: RegistrationInitiateRequest) =>
+      requestJson<RegistrationInitiateResponse>("/api/auth/register/initiate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(values),
       }),
-    onSuccess: (response) => {
-      persistToken(normalizeAccessToken(response.accessToken));
-      registerForm.reset();
-      router.push("/dashboard");
+    onSuccess: (response, variables) => {
+      setRegisteredEmail(variables.email);
+      setMode("verification-sent");
     },
   });
 
+  const resendMutation = useMutation({
+    mutationFn: (values: ResendVerificationRequest) =>
+      requestJson<RegistrationInitiateResponse>("/api/auth/register/resend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(values),
+      }),
+  });
+
+  const handleRegister = (values: RegisterValues) => {
+    initiateRegisterMutation.mutate({
+      fullName: values.fullName,
+      email: values.email,
+      password: values.password,
+    });
+  };
+
+  const handleResend = () => {
+    resendMutation.mutate({ email: registeredEmail });
+  };
+
   return (
     <div className="mx-auto flex min-h-screen max-w-md items-center px-4 py-10">
-      <section className="w-full rounded-[2rem] border border-white/8 bg-[#131917]/96 p-6 shadow-[0_24px_90px_rgba(0,0,0,0.24)] sm:p-8">
-        <div className="mb-6 flex rounded-full border border-[#36413b] bg-[#0f1412] p-1 text-sm">
-          <ModeButton active={mode === "login"} onClick={() => setMode("login")}>Sign in</ModeButton>
-          <ModeButton active={mode === "register"} onClick={() => setMode("register")}>Register</ModeButton>
+      <section className="fade-up-enter w-full rounded-[var(--radius-panel)] border border-[var(--border-soft)] bg-[var(--surface-1)] p-6 shadow-[var(--shadow-hero)] sm:p-8">
+        <div className="fade-up-enter-delay-1 mb-6 text-center">
+          <BrandLogo className="text-4xl sm:text-5xl" />
         </div>
 
+        {mode !== "verification-sent" && (
+          <div className="fade-up-enter-delay-1 mb-6 flex rounded-full border border-[var(--border-muted)] bg-[var(--surface-2)] p-1 text-sm">
+            <ModeButton active={mode === "login"} onClick={() => setMode("login")}>Sign in</ModeButton>
+            <ModeButton active={mode === "register"} onClick={() => setMode("register")}>Register</ModeButton>
+          </div>
+        )}
+
         {mode === "login" ? (
-          <form className="space-y-4" onSubmit={loginForm.handleSubmit((values) => loginMutation.mutate(values))}>
+          <form className="fade-up-enter-delay-2 space-y-4" onSubmit={loginForm.handleSubmit((values) => loginMutation.mutate(values))}>
             <Heading title="Sign in" />
             <Field label="Email" error={loginForm.formState.errors.email?.message}>
               <input className={inputClassName} placeholder="email@example.com" {...loginForm.register("email")} />
@@ -90,8 +123,8 @@ export function AuthWorkspace() {
             </button>
             {loginMutation.error ? <InlineError message={loginMutation.error.message} /> : null}
           </form>
-        ) : (
-          <form className="space-y-4" onSubmit={registerForm.handleSubmit((values) => registerMutation.mutate(values))}>
+        ) : mode === "register" ? (
+          <form className="fade-up-enter-delay-2 space-y-4" onSubmit={registerForm.handleSubmit(handleRegister)}>
             <Heading title="Register" />
             <Field label="Full name" error={registerForm.formState.errors.fullName?.message}>
               <input className={inputClassName} placeholder="John Doe" {...registerForm.register("fullName")} />
@@ -102,11 +135,37 @@ export function AuthWorkspace() {
             <Field label="Password" error={registerForm.formState.errors.password?.message}>
               <input className={inputClassName} type="password" placeholder="StrongPass123!" {...registerForm.register("password")} />
             </Field>
-            <button className={primaryButtonClassName} disabled={registerMutation.isPending} type="submit">
-              {registerMutation.isPending ? "Creating account..." : "Create account"}
+            <button className={primaryButtonClassName} disabled={initiateRegisterMutation.isPending} type="submit">
+              {initiateRegisterMutation.isPending ? "Sending verification..." : "Create account"}
             </button>
-            {registerMutation.error ? <InlineError message={registerMutation.error.message} /> : null}
+            {initiateRegisterMutation.error ? <InlineError message={initiateRegisterMutation.error.message} /> : null}
           </form>
+        ) : (
+          <div className="fade-up-enter-delay-2 space-y-4">
+            <Heading title="Check your email" />
+            <p className={ui.textSecondary}>
+              We sent a verification link to <strong>{registeredEmail}</strong>.
+            </p>
+            <p className={ui.textSecondary}>
+              Click the link in the email to verify your account and complete registration.
+            </p>
+            <button
+              className={secondaryButtonClassName}
+              disabled={resendMutation.isPending}
+              onClick={handleResend}
+              type="button"
+            >
+              {resendMutation.isPending ? "Resending..." : "Resend verification email"}
+            </button>
+            <button
+              className={tertiaryButtonClassName}
+              onClick={() => setMode("register")}
+              type="button"
+            >
+              Go back
+            </button>
+            {resendMutation.error ? <InlineError message={resendMutation.error.message} /> : null}
+          </div>
         )}
       </section>
     </div>
@@ -114,13 +173,14 @@ export function AuthWorkspace() {
 }
 
 function Heading({ title }: { title: string }) {
-  return <h1 className="mb-2 text-3xl font-semibold text-stone-100">{title}</h1>;
+  return <h1 className={`mb-2 text-3xl font-semibold ${ui.textPrimary}`}>{title}</h1>;
 }
 
 function ModeButton({ active, children, onClick }: { active: boolean; children: React.ReactNode; onClick: () => void }) {
   return (
     <button
-      className={active ? "flex-1 rounded-full bg-[#dbc9a3] px-4 py-2 font-medium text-[#141915]" : "flex-1 rounded-full px-4 py-2 font-medium text-stone-300"}
+      aria-pressed={active}
+      className={active ? "flex-1 rounded-full bg-[var(--accent-gold)] px-4 py-2 font-medium text-[var(--accent-gold-ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-gold-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface-2)]" : "flex-1 rounded-full px-4 py-2 font-medium text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-gold-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface-2)]"}
       onClick={onClick}
       type="button"
     >
@@ -132,19 +192,25 @@ function ModeButton({ active, children, onClick }: { active: boolean; children: 
 function Field({ children, error, label }: { children: React.ReactNode; error?: string; label: string }) {
   return (
     <label className="block">
-      <span className="mb-2 block text-sm font-medium text-stone-200">{label}</span>
+      <span className={`mb-2 block text-sm font-medium ${ui.textPrimary}`}>{label}</span>
       {children}
-      {error ? <p className="mt-2 text-sm text-rose-300">{error}</p> : null}
+      {error ? <p className={`mt-2 text-sm ${ui.textExpense}`}>{error}</p> : null}
     </label>
   );
 }
 
 function InlineError({ message }: { message: string }) {
-  return <p className="rounded-2xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">{message}</p>;
+  return <p className={ui.errorBanner}>{message}</p>;
 }
 
 const inputClassName =
-  "w-full rounded-2xl border border-[#3e4942] bg-[#0f1412] px-4 py-3 text-stone-100 outline-none transition focus:border-emerald-300/60 focus:ring-2 focus:ring-emerald-300/10";
+  `w-full ${ui.input}`;
 
 const primaryButtonClassName =
-  "w-full rounded-2xl bg-[#dbc9a3] px-4 py-3 font-medium text-[#141915] transition hover:bg-[#e5d5b3] disabled:cursor-not-allowed disabled:opacity-60";
+  "w-full rounded-2xl bg-[var(--accent-gold)] px-4 py-3 font-medium text-[var(--accent-gold-ink)] transition hover:bg-[var(--accent-gold-hover)] disabled:cursor-not-allowed disabled:opacity-60";
+
+const secondaryButtonClassName =
+  "w-full rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-2)] px-4 py-3 font-medium text-[var(--text-primary)] transition hover:bg-[var(--surface-3)] disabled:cursor-not-allowed disabled:opacity-60";
+
+const tertiaryButtonClassName =
+  "w-full rounded-2xl px-4 py-2 font-medium text-[var(--text-secondary)] transition hover:text-[var(--text-primary)]";
