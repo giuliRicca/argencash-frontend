@@ -9,7 +9,7 @@ import { z } from "zod";
 
 import { requestJson } from "@/lib/api";
 import { normalizeAccessToken } from "@/lib/auth-token";
-import { AuthResponse, LoginRequest, RegisterRequest, RegistrationInitiateRequest, RegistrationInitiateResponse, ResendVerificationRequest } from "@/lib/contracts";
+import { AuthResponse, LoginRequest, RegistrationInitiateRequest, RegistrationInitiateResponse, ResendVerificationRequest } from "@/lib/contracts";
 import { persistToken } from "@/lib/storage";
 import { ui } from "@/lib/ui";
 import { BrandLogo } from "@/components/brand-logo";
@@ -28,9 +28,13 @@ const registerSchema = z.object({
 type LoginValues = z.infer<typeof loginSchema>;
 type RegisterValues = z.infer<typeof registerSchema>;
 
-export function AuthWorkspace() {
+type AuthWorkspaceProps = {
+  initialMode?: "login" | "register";
+};
+
+export function AuthWorkspace({ initialMode = "login" }: AuthWorkspaceProps) {
   const router = useRouter();
-  const [mode, setMode] = useState<"login" | "register" | "verification-sent">("login");
+  const [mode, setMode] = useState<"login" | "register" | "verification-sent">(initialMode);
   const [registeredEmail, setRegisteredEmail] = useState<string>("");
 
   const loginForm = useForm<LoginValues>({

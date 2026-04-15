@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { requestJson } from "@/lib/api";
 import { normalizeAccessToken } from "@/lib/auth-token";
@@ -17,31 +17,49 @@ export function EmailVerification() {
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const verifyEmail = useCallback(async () => {
-    if (!token) {
-      setStatus("error");
-      setErrorMessage("Invalid verification link.");
-      return;
-    }
-
-    try {
-      const response = await requestJson<AuthResponse>("/api/auth/register/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ verificationToken: token } as VerifyEmailRequest),
-      });
-
-      persistToken(normalizeAccessToken(response.accessToken));
-      setStatus("success");
-    } catch (err) {
-      setStatus("error");
-      setErrorMessage(err instanceof Error ? err.message : "Verification failed. The link may be expired or invalid.");
-    }
-  }, [token]);
-
   useEffect(() => {
-    verifyEmail();
-  }, [verifyEmail]);
+    let isCancelled = false;
+
+    const runVerification = async () => {
+      if (!token) {
+        if (isCancelled) {
+          return;
+        }
+
+        setStatus("error");
+        setErrorMessage("Invalid verification link.");
+        return;
+      }
+
+      try {
+        const response = await requestJson<AuthResponse>("/api/auth/register/verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ verificationToken: token } as VerifyEmailRequest),
+        });
+
+        if (isCancelled) {
+          return;
+        }
+
+        persistToken(normalizeAccessToken(response.accessToken));
+        setStatus("success");
+      } catch (err) {
+        if (isCancelled) {
+          return;
+        }
+
+        setStatus("error");
+        setErrorMessage(err instanceof Error ? err.message : "Verification failed. The link may be expired or invalid.");
+      }
+    };
+
+    void runVerification();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [token]);
 
   useEffect(() => {
     if (status !== "success") {

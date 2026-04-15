@@ -7,6 +7,7 @@ import { BrandLogo } from "@/components/brand-logo";
 import { useStoredToken } from "@/lib/storage";
 
 const securedPathPrefixes = ["/dashboard", "/settings", "/accounts"];
+const hiddenBrandPaths = new Set(["/", "/login", "/register"]);
 
 export function GlobalBrand() {
   const pathname = usePathname();
@@ -14,7 +15,7 @@ export function GlobalBrand() {
 
   const isSecuredPath = securedPathPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 
-  if (pathname === "/" || (isSecuredPath && !accessToken)) {
+  if (hiddenBrandPaths.has(pathname) || (isSecuredPath && !accessToken)) {
     return null;
   }
 
