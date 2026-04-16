@@ -18,6 +18,7 @@ import {
   ExchangeRateType,
 } from "@/lib/contracts";
 import { clearToken, useStoredToken } from "@/lib/storage";
+import { useUnauthorizedRedirect } from "@/lib/hooks/use-unauthorized-redirect";
 import { ui } from "@/lib/ui";
 import { formatRate } from "@/components/formatters";
 import { useEffect, useId, useState } from "react";
@@ -130,6 +131,17 @@ export function DashboardShell() {
       setShowCreateModal(false);
     },
   });
+
+  useUnauthorizedRedirect([
+    meQuery.error,
+    accountsQuery.error,
+    liveRatesQuery.error,
+    categoriesQuery.error,
+    budgetsQuery.error,
+    createTransactionMutation.error,
+    createTransferMutation.error,
+    createAccountMutation.error,
+  ]);
 
   if (!accessToken) {
     return <MissingSessionState />;

@@ -10,6 +10,10 @@ export class ApiError extends Error {
   }
 }
 
+export function isUnauthorizedApiError(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 401;
+}
+
 export async function requestJson<T>(input: RequestInfo | URL, init?: RequestInit): Promise<T> {
   const response = await fetch(input, init);
 

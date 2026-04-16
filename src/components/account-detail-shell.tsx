@@ -17,6 +17,7 @@ import {
   UpdateAccountRequest,
   UpdateTransactionRequest,
 } from "@/lib/contracts";
+import { useUnauthorizedRedirect } from "@/lib/hooks/use-unauthorized-redirect";
 import { useStoredToken } from "@/lib/storage";
 import { ui } from "@/lib/ui";
 import { formatDateTime, formatRate } from "@/components/formatters";
@@ -137,6 +138,17 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
       setEditingTransaction(null);
     },
   });
+
+  useUnauthorizedRedirect([
+    accountQuery.error,
+    categoriesQuery.error,
+    accountsQuery.error,
+    createTransactionMutation.error,
+    createTransferMutation.error,
+    updateAccountNameMutation.error,
+    deleteTransactionMutation.error,
+    updateTransactionMutation.error,
+  ]);
 
   if (!accessToken) {
     return <MissingSessionState />;

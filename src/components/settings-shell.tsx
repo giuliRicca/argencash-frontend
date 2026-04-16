@@ -13,6 +13,7 @@ import {
   CreateCategoryRequest,
   UpdateBudgetRequest,
 } from "@/lib/contracts";
+import { useUnauthorizedRedirect } from "@/lib/hooks/use-unauthorized-redirect";
 import { useStoredToken } from "@/lib/storage";
 import { ui } from "@/lib/ui";
 import { CategoriesManager } from "@/components/settings/categories-manager";
@@ -94,6 +95,16 @@ export function SettingsShell() {
       queryClient.invalidateQueries({ queryKey: ["budgets", accessToken] });
     },
   });
+
+  useUnauthorizedRedirect([
+    meQuery.error,
+    categoriesQuery.error,
+    budgetsQuery.error,
+    createCategoryMutation.error,
+    createBudgetMutation.error,
+    updateBudgetMutation.error,
+    deleteBudgetMutation.error,
+  ]);
 
   if (!accessToken) {
     return <MissingSessionState />;
