@@ -28,55 +28,63 @@ export default function Home() {
         <div className="h-full w-full bg-[linear-gradient(to_right,rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:40px_40px]" />
       </div>
 
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 sm:gap-6">
         <section className="fade-up-enter rounded-[var(--radius-panel)] border border-[var(--border-soft)] bg-[var(--surface-1)] p-7 shadow-[var(--shadow-panel)] sm:p-10">
-          <div className="fade-up-enter-delay-1 flex flex-wrap items-center justify-between gap-4 border-b border-[var(--border-soft)] pb-5">
-            <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">Portfolio Case Study</p>
-              <BrandLogo className="mt-2 text-5xl sm:text-6xl" />
+          <div className="flex flex-col gap-6">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <BrandLogo className="text-5xl sm:text-6xl" />
+              <span className="rounded-full border border-[var(--accent-gold-border)] bg-[var(--accent-gold-soft)] px-4 py-2 text-xs uppercase tracking-[0.16em] text-[var(--accent-gold-text)]">
+                Personal Finance, Rebuilt
+              </span>
             </div>
-            <div className="rounded-2xl border border-[var(--accent-gold-border)] bg-[var(--accent-gold-soft)] px-4 py-3 text-right">
-              <p className="text-xs uppercase tracking-[0.14em] text-[var(--text-muted)]">Project Focus</p>
-              <p className="mt-1 text-sm font-medium text-[var(--accent-gold-text)]">Multi-currency finance operations</p>
-            </div>
-          </div>
 
-          <div className="fade-up-enter-delay-2 mt-6 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-            <div>
+            <div className="max-w-3xl">
               <h1 className={`text-3xl font-semibold leading-tight sm:text-4xl ${ui.textPrimary}`}>
-                Built to manage USD/ARS volatility with transaction-grade visibility.
+                Track your money across ARS and USD in one calm workspace.
               </h1>
-              <p className={`mt-4 max-w-2xl text-base ${ui.textSecondary}`}>
-                ArgenCash is a full-stack personal finance workspace where users create accounts, record income and expenses, move funds between accounts, monitor portfolio totals, and track exchange-rate impact in real time.
+              <p className={`mt-4 text-base sm:text-lg ${ui.textSecondary}`}>
+                ArgenCash helps you record spending, move balances, and read real portfolio value with live conversion context.
               </p>
-
-              <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
-                <Link className={`inline-flex justify-center ${ui.buttonBase} ${ui.buttonSolidGold} px-6 py-3`} href="/login" prefetch={false}>
-                  Log in
-                </Link>
-                <Link className={`inline-flex justify-center ${ui.buttonBase} ${ui.buttonNeutral} px-6 py-3`} href="/register" prefetch={false}>
-                  Register
-                </Link>
-              </div>
+              <p className={`mt-3 max-w-2xl text-sm sm:text-base ${ui.textSecondary}`}>
+                In Argentina, inflation and parallel exchange markets can make your true balance hard to read. ArgenCash centralizes accounts,
+                movements, and rate references so you can make decisions with clarity instead of guesswork.
+              </p>
             </div>
 
-            <aside className="rounded-3xl border border-[var(--border-muted)] bg-[var(--surface-2)] p-5">
-              <p className="text-xs uppercase tracking-[0.16em] text-[var(--text-muted)]">Production Surface</p>
-              <dl className="mt-4 grid gap-4">
-                {projectMetrics.map((metric) => (
-                  <div key={metric.label} className="rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-3)] px-4 py-3">
-                    <dt className="text-xs uppercase tracking-[0.14em] text-[var(--text-muted)]">{metric.label}</dt>
-                    <dd className="mt-1 text-lg font-semibold text-[var(--text-primary)]">{metric.value}</dd>
-                  </div>
-                ))}
-              </dl>
-            </aside>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <Link className={`inline-flex justify-center ${ui.buttonBase} ${ui.buttonSolidGold} !text-[var(--accent-gold-ink)] px-6 py-3`} href="/register" prefetch={false}>
+                Create Account
+              </Link>
+              <Link className={`inline-flex justify-center ${ui.buttonBase} ${ui.buttonNeutral} px-6 py-3`} href="/login" prefetch={false}>
+                Log in
+              </Link>
+            </div>
           </div>
         </section>
 
-        <section className="fade-up-enter-delay-1 grid gap-4 md:grid-cols-3">
-          {featureHighlights.map((feature) => (
-            <article key={feature.title} className={`${ui.tile}`}>
+        <section className="fade-up-enter-delay-1 grid gap-3 sm:grid-cols-3">
+          {trustPoints.map((item) => (
+            <article key={item.label} className="rounded-2xl border border-[var(--border-muted)] bg-[var(--surface-2)] px-4 py-4 sm:px-5">
+              <p className="text-xs uppercase tracking-[0.14em] text-[var(--text-muted)]">{item.label}</p>
+              <p className="mt-2 text-sm font-medium text-[var(--text-primary)]">{item.value}</p>
+            </article>
+          ))}
+        </section>
+
+        <section className="fade-up-enter-delay-2 rounded-3xl border border-[var(--border-muted)] bg-[var(--surface-2)] p-5 sm:p-6">
+          <p className="text-xs uppercase tracking-[0.16em] text-[var(--text-muted)]">Why ArgenCash</p>
+          <ul className="mt-3 grid gap-2 sm:grid-cols-3">
+            {problemPoints.map((point) => (
+              <li key={point} className={`rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-3)] px-4 py-3 text-sm ${ui.textSecondary}`}>
+                {point}
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section className="fade-up-enter-delay-2 grid gap-4 md:grid-cols-3">
+          {features.map((feature) => (
+            <article key={feature.title} className={ui.tile}>
               <p className="text-xs uppercase tracking-[0.14em] text-[var(--text-muted)]">{feature.kicker}</p>
               <h2 className="mt-2 text-lg font-semibold text-[var(--text-primary)]">{feature.title}</h2>
               <p className={`mt-2 text-sm ${ui.textSecondary}`}>{feature.description}</p>
@@ -84,49 +92,15 @@ export default function Home() {
           ))}
         </section>
 
-        <section className="fade-up-enter-delay-2 grid gap-4 lg:grid-cols-2">
-          <article className={`${ui.panel}`}>
-            <p className="text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">Application Flow</p>
-            <h2 className={`mt-2 text-2xl font-semibold ${ui.textPrimary}`}>From authentication to operational tracking</h2>
-            <ol className="mt-5 grid gap-3">
-              {workflowSteps.map((step, index) => (
-                <li key={step} className="grid grid-cols-[2.2rem_1fr] items-start gap-3 rounded-2xl border border-[var(--border-muted)] bg-[var(--surface-2)] p-4">
-                  <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--accent-gold-border)] bg-[var(--accent-gold-soft)] text-sm font-semibold text-[var(--accent-gold-text)]">
-                    {index + 1}
-                  </span>
-                  <span className={`pt-1 text-sm ${ui.textSecondary}`}>{step}</span>
-                </li>
-              ))}
-            </ol>
-          </article>
-
-          <article className={`${ui.panel}`}>
-            <p className="text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">Technical Notes</p>
-            <h2 className={`mt-2 text-2xl font-semibold ${ui.textPrimary}`}>Engineering choices recruiters can evaluate</h2>
-            <ul className="mt-5 grid gap-3">
-              {technicalNotes.map((note) => (
-                <li key={note} className="rounded-2xl border border-[var(--border-muted)] bg-[var(--surface-2)] px-4 py-3 text-sm text-[var(--text-secondary)]">
-                  {note}
-                </li>
-              ))}
-            </ul>
-          </article>
-        </section>
-
         <section className="fade-up-enter-delay-2 rounded-[var(--radius-panel)] border border-[var(--border-soft)] bg-[var(--surface-1)] p-6 sm:p-8">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">Explore The Product</p>
-              <p className={`mt-2 text-xl font-semibold ${ui.textPrimary}`}>Review the live user flow and core finance operations.</p>
+              <p className="text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">Ready To Start</p>
+              <p className={`mt-2 text-xl font-semibold ${ui.textPrimary}`}>Start tracking with clarity across ARS and USD.</p>
             </div>
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <Link className={`inline-flex justify-center ${ui.buttonBase} ${ui.buttonSolidGold} px-5 py-3`} href="/login" prefetch={false}>
-                Open Login
-              </Link>
-              <Link className={`inline-flex justify-center ${ui.buttonBase} ${ui.buttonNeutral} px-5 py-3`} href="/register" prefetch={false}>
-                Create Account
-              </Link>
-            </div>
+            <Link className={`inline-flex justify-center ${ui.buttonBase} ${ui.buttonSolidGold} !text-[var(--accent-gold-ink)] px-6 py-3`} href="/register" prefetch={false}>
+              Get Started
+            </Link>
           </div>
         </section>
       </div>
@@ -134,42 +108,32 @@ export default function Home() {
   );
 }
 
-const projectMetrics = [
-  { label: "Core Views", value: "Dashboard, Accounts, Settings" },
-  { label: "Auth Journey", value: "Register + Email Verify + Login" },
-  { label: "Money Ops", value: "Transactions, Transfers, Budgets" },
+const trustPoints = [
+  { label: "Live Rates", value: "Official, Blue, CCL, and Crypto references" },
+  { label: "Multi-Account", value: "Track balances across currencies in one view" },
+  { label: "Daily Control", value: "Income, expenses, transfers, and budgets" },
 ];
 
-const featureHighlights = [
+const features = [
   {
     kicker: "Portfolio",
-    title: "Unified account balances in USD and ARS",
-    description: "Each account exposes native and converted totals so users can understand liquidity and exposure at portfolio level.",
+    title: "See your real total at a glance",
+    description: "Monitor account balances in native and converted values so you can understand exposure instantly.",
   },
   {
-    kicker: "Ledger",
-    title: "Transaction lifecycle with category controls",
-    description: "Income and expense entries support category tagging, editable records, and account-scoped history for auditability.",
+    kicker: "Movements",
+    title: "Log every operation with context",
+    description: "Keep your ledger clear with categorized income, expenses, and editable transaction history.",
   },
   {
-    kicker: "Rates",
-    title: "Live rate comparisons across market types",
-    description: "Official, Blue, CCL, and Crypto rates are pulled in batch and surfaced directly in the dashboard context.",
+    kicker: "Decisions",
+    title: "Act with exchange-rate awareness",
+    description: "Use built-in market references while moving money between ARS and USD balances.",
   },
 ];
 
-const workflowSteps = [
-  "User authenticates with token-based session handling and protected routes.",
-  "Accounts are created with exchange-rate profile and default currency.",
-  "Transactions and transfers mutate balances and refresh relevant queries.",
-  "Budget coverage and month summaries reveal spending progress by category.",
-  "Rate widgets provide current conversion references for decision-making.",
-];
-
-const technicalNotes = [
-  "Next.js App Router with route handlers for auth, accounts, budgets, transactions, transfers, and exchange-rate data.",
-  "TanStack Query manages server state, optimistic refresh patterns, and invalidation after financial mutations.",
-  "Type-safe request/response contracts drive consistency from API calls to UI forms and modals.",
-  "Reusable modal workflows support account operations without leaving dashboard context.",
-  "Client-side token store synchronizes login state across tabs via storage and custom events.",
+const problemPoints = [
+  "Balances are split across accounts and currencies.",
+  "Rate volatility makes day-to-day decisions harder.",
+  "Most tools do not reflect your real ARS/USD picture.",
 ];
