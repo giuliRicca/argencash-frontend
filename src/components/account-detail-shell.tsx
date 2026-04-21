@@ -9,6 +9,7 @@ import { buildAuthorizationHeader } from "@/lib/auth-token";
 import {
   Account,
   AccountDetail,
+  AccountType,
   AccountTransaction,
   CreateTransactionRequest,
   CreateTransferRequest,
@@ -40,6 +41,9 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
   const [isEditingName, setIsEditingName] = useState(false);
   const [accountNameDraft, setAccountNameDraft] = useState("");
   const [exchangeRateTypeDraft, setExchangeRateTypeDraft] = useState<ExchangeRateType>("OFFICIAL");
+  const [accountTypeDraft, setAccountTypeDraft] = useState<AccountType>("STANDARD");
+  const [fundingAccountIdDraft, setFundingAccountIdDraft] = useState("");
+  const [paymentDayOfMonthDraft, setPaymentDayOfMonthDraft] = useState("1");
 
   const accountQuery = useQuery({
     queryKey: ["account-detail", accountId, accessToken],
@@ -139,6 +143,11 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
     },
   });
 
+  const eligibleFundingAccounts = getEligibleFundingAccounts(accountsQuery.data ?? [], accountId);
+  const resolvedFundingAccountIdDraft = accountTypeDraft === "CREDIT"
+    ? resolveFundingAccountDraftId(eligibleFundingAccounts, fundingAccountIdDraft)
+    : fundingAccountIdDraft;
+
   useUnauthorizedRedirect([
     accountQuery.error,
     categoriesQuery.error,
@@ -168,6 +177,14 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
                 <span className={ui.badgeGold}>
                   {accountQuery.data.exchangeRateType}
                 </span>
+                <span className={`rounded-full border px-2 py-1 text-[11px] tracking-[0.06em] ${accountQuery.data.accountType === "CREDIT" ? "border-[var(--state-info-border)] bg-[var(--state-info-soft)] text-[var(--state-info)]" : "border-[var(--border-muted)] bg-[var(--surface-3)] text-[var(--text-muted)]"}`}>
+                  {formatAccountTypeLabel(accountQuery.data.accountType)}
+                </span>
+                {accountQuery.data.accountType === "CREDIT" ? (
+                  <span className={`text-xs ${ui.textMuted}`}>
+                    Pays day {accountQuery.data.paymentDayOfMonth ?? "-"} from {resolveFundingAccountName(accountsQuery.data ?? [], accountQuery.data.fundingAccountId)}
+                  </span>
+                ) : null}
                 {isEditingName ? (
                   <>
                     <input
@@ -187,18 +204,75 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
                         </option>
                       ))}
                     </select>
+                    <select
+                      className={`${ui.select} py-2`}
+                      onChange={(event) => setAccountTypeDraft(event.target.value as AccountType)}
+                      value={accountTypeDraft}
+                    >
+                      <option value="STANDARD">Standard</option>
+                      <option value="CREDIT">Credit card</option>
+                    </select>
+                    {accountTypeDraft === "CREDIT" ? (
+                      <>
+                        <select
+                          className={`${ui.select} py-2`}
+                          onChange={(event) => setFundingAccountIdDraft(event.target.value)}
+                          value={resolvedFundingAccountIdDraft}
+                        >
+                          {eligibleFundingAccounts.length === 0 ? (
+                            <option value="">No eligible standard accounts</option>
+                          ) : null}
+                          {eligibleFundingAccounts.map((account) => (
+                            <option key={account.id} value={account.id}>
+                              {account.name}
+                            </option>
+                          ))}
+                        </select>
+                        <input
+                          className={`w-24 ${ui.input} py-2 text-sm`}
+                          max={28}
+                          min={1}
+                          onChange={(event) => setPaymentDayOfMonthDraft(event.target.value)}
+                          type="number"
+                          value={paymentDayOfMonthDraft}
+                        />
+                        {eligibleFundingAccounts.length === 0 ? (
+                          <span className="text-xs text-[var(--state-danger)]">Create a standard account first.</span>
+                        ) : null}
+                      </>
+                    ) : null}
                     <button
                       className={`${ui.buttonBase} ${ui.buttonSolidGold} rounded-xl px-3 py-2 text-xs`}
                       disabled={
                         updateAccountNameMutation.isPending ||
-                        !hasAccountUpdateChanges(accountQuery.data.name, accountNameDraft, accountQuery.data.exchangeRateType, exchangeRateTypeDraft)
+                        !hasAccountUpdateChanges({
+                          currentName: accountQuery.data.name,
+                          draftName: accountNameDraft,
+                          currentRateType: accountQuery.data.exchangeRateType,
+                          draftRateType: exchangeRateTypeDraft,
+                          currentAccountType: accountQuery.data.accountType,
+                          draftAccountType: accountTypeDraft,
+                          currentFundingAccountId: accountQuery.data.fundingAccountId,
+                          draftFundingAccountId: resolvedFundingAccountIdDraft,
+                          currentPaymentDayOfMonth: accountQuery.data.paymentDayOfMonth,
+                          draftPaymentDayOfMonth: paymentDayOfMonthDraft,
+                        }) ||
+                        !hasValidCreditSettings(accountTypeDraft, resolvedFundingAccountIdDraft, paymentDayOfMonthDraft)
                       }
                       onClick={() => {
                         const payload = buildUpdateAccountPayload(
-                          accountQuery.data.name,
-                          accountNameDraft,
-                          accountQuery.data.exchangeRateType,
-                          exchangeRateTypeDraft,
+                          {
+                            currentName: accountQuery.data.name,
+                            draftName: accountNameDraft,
+                            currentRateType: accountQuery.data.exchangeRateType,
+                            draftRateType: exchangeRateTypeDraft,
+                            currentAccountType: accountQuery.data.accountType,
+                            draftAccountType: accountTypeDraft,
+                            currentFundingAccountId: accountQuery.data.fundingAccountId,
+                            draftFundingAccountId: resolvedFundingAccountIdDraft,
+                            currentPaymentDayOfMonth: accountQuery.data.paymentDayOfMonth,
+                            draftPaymentDayOfMonth: paymentDayOfMonthDraft,
+                          },
                         );
 
                         updateAccountNameMutation.mutate(payload);
@@ -213,6 +287,9 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
                       onClick={() => {
                         setAccountNameDraft(accountQuery.data.name);
                         setExchangeRateTypeDraft(accountQuery.data.exchangeRateType);
+                        setAccountTypeDraft(accountQuery.data.accountType);
+                        setFundingAccountIdDraft(accountQuery.data.fundingAccountId ?? "");
+                        setPaymentDayOfMonthDraft(String(accountQuery.data.paymentDayOfMonth ?? 1));
                         setIsEditingName(false);
                       }}
                       type="button"
@@ -226,6 +303,9 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
                     onClick={() => {
                       setAccountNameDraft(accountQuery.data.name);
                       setExchangeRateTypeDraft(accountQuery.data.exchangeRateType);
+                      setAccountTypeDraft(accountQuery.data.accountType);
+                      setFundingAccountIdDraft(accountQuery.data.fundingAccountId ?? "");
+                      setPaymentDayOfMonthDraft(String(accountQuery.data.paymentDayOfMonth ?? 1));
                       setIsEditingName(true);
                     }}
                     type="button"
@@ -364,7 +444,7 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
       </div>
       {showAddModal && categoriesQuery.data ? (
         <CreateTransactionModal
-          accounts={accountQuery.data ? [{ id: accountId, name: accountQuery.data.name, currencyCode: accountQuery.data.currencyCode, exchangeRateType: accountQuery.data.exchangeRateType, balanceInAccountCurrency: accountQuery.data.balanceInAccountCurrency, balanceUsd: accountQuery.data.balanceUsd, balanceArs: accountQuery.data.balanceArs } satisfies Account] : []}
+          accounts={accountQuery.data ? [{ id: accountId, name: accountQuery.data.name, currencyCode: accountQuery.data.currencyCode, exchangeRateType: accountQuery.data.exchangeRateType, accountType: accountQuery.data.accountType, fundingAccountId: accountQuery.data.fundingAccountId, paymentDayOfMonth: accountQuery.data.paymentDayOfMonth, balanceInAccountCurrency: accountQuery.data.balanceInAccountCurrency, balanceUsd: accountQuery.data.balanceUsd, balanceArs: accountQuery.data.balanceArs } satisfies Account] : []}
           categories={categoriesQuery.data}
           error={createTransactionMutation.error ? (createTransactionMutation.error as Error).message : null}
           initialAccountId={accountId}
@@ -401,37 +481,99 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
 
 const EXCHANGE_RATE_TYPES: ExchangeRateType[] = ["OFFICIAL", "CCL", "MEP", "BLUE", "CRYPTO"];
 
-function hasAccountUpdateChanges(
-  currentName: string,
-  draftName: string,
-  currentRateType: ExchangeRateType,
-  draftRateType: ExchangeRateType,
-) {
-  const normalizedName = draftName.trim();
-  const hasNameChange = normalizedName.length > 0 && normalizedName !== currentName;
-  const hasRateTypeChange = draftRateType !== currentRateType;
+type AccountUpdateDraft = {
+  currentName: string;
+  draftName: string;
+  currentRateType: ExchangeRateType;
+  draftRateType: ExchangeRateType;
+  currentAccountType: AccountType;
+  draftAccountType: AccountType;
+  currentFundingAccountId: string | null;
+  draftFundingAccountId: string;
+  currentPaymentDayOfMonth: number | null;
+  draftPaymentDayOfMonth: string;
+};
 
-  return hasNameChange || hasRateTypeChange;
+function hasAccountUpdateChanges(draft: AccountUpdateDraft) {
+  const normalizedName = draft.draftName.trim();
+  const hasNameChange = normalizedName.length > 0 && normalizedName !== draft.currentName;
+  const hasRateTypeChange = draft.draftRateType !== draft.currentRateType;
+  const hasAccountTypeChange = draft.draftAccountType !== draft.currentAccountType;
+  const hasFundingAccountChange =
+    draft.draftAccountType === "CREDIT" &&
+    draft.draftFundingAccountId !== (draft.currentFundingAccountId ?? "");
+  const nextPaymentDay = Number(draft.draftPaymentDayOfMonth);
+  const hasPaymentDayChange =
+    draft.draftAccountType === "CREDIT" &&
+    Number.isInteger(nextPaymentDay) &&
+    nextPaymentDay !== (draft.currentPaymentDayOfMonth ?? 1);
+
+  return hasNameChange || hasRateTypeChange || hasAccountTypeChange || hasFundingAccountChange || hasPaymentDayChange;
 }
 
-function buildUpdateAccountPayload(
-  currentName: string,
-  draftName: string,
-  currentRateType: ExchangeRateType,
-  draftRateType: ExchangeRateType,
-): UpdateAccountRequest {
+function buildUpdateAccountPayload(draft: AccountUpdateDraft): UpdateAccountRequest {
   const payload: UpdateAccountRequest = {};
-  const normalizedName = draftName.trim();
+  const normalizedName = draft.draftName.trim();
 
-  if (normalizedName.length > 0 && normalizedName !== currentName) {
+  if (normalizedName.length > 0 && normalizedName !== draft.currentName) {
     payload.name = normalizedName;
   }
 
-  if (draftRateType !== currentRateType) {
-    payload.exchangeRateType = draftRateType;
+  if (draft.draftRateType !== draft.currentRateType) {
+    payload.exchangeRateType = draft.draftRateType;
+  }
+
+  if (draft.draftAccountType !== draft.currentAccountType) {
+    payload.accountType = draft.draftAccountType;
+  }
+
+  if (draft.draftAccountType === "CREDIT") {
+    const paymentDayOfMonth = Number(draft.draftPaymentDayOfMonth);
+    if (draft.draftFundingAccountId !== (draft.currentFundingAccountId ?? "")) {
+      payload.fundingAccountId = draft.draftFundingAccountId;
+    }
+
+    if (Number.isInteger(paymentDayOfMonth) && paymentDayOfMonth !== (draft.currentPaymentDayOfMonth ?? 1)) {
+      payload.paymentDayOfMonth = paymentDayOfMonth;
+    }
   }
 
   return payload;
+}
+
+function hasValidCreditSettings(accountType: AccountType, fundingAccountId: string, paymentDayOfMonth: string) {
+  if (accountType !== "CREDIT") {
+    return true;
+  }
+
+  const parsedPaymentDay = Number(paymentDayOfMonth);
+  return Boolean(fundingAccountId) && Number.isInteger(parsedPaymentDay) && parsedPaymentDay >= 1 && parsedPaymentDay <= 28;
+}
+
+function getEligibleFundingAccounts(accounts: Account[], accountId: string) {
+  return accounts.filter((account) => account.accountType === "STANDARD" && account.id !== accountId);
+}
+
+function resolveFundingAccountDraftId(accounts: Account[], draftFundingAccountId: string) {
+  if (accounts.length === 0) {
+    return "";
+  }
+
+  return accounts.some((account) => account.id === draftFundingAccountId)
+    ? draftFundingAccountId
+    : accounts[0].id;
+}
+
+function formatAccountTypeLabel(accountType: AccountType) {
+  return accountType === "CREDIT" ? "Credit" : "Standard";
+}
+
+function resolveFundingAccountName(accounts: Account[], fundingAccountId: string | null) {
+  if (!fundingAccountId) {
+    return "-";
+  }
+
+  return accounts.find((account) => account.id === fundingAccountId)?.name ?? "Unknown account";
 }
 
 function formatTransactionType(transactionType: string) {
