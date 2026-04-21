@@ -1,11 +1,11 @@
 export const ui = {
-  page: "min-h-screen bg-[var(--bg-page-gradient)] px-6 py-8 sm:px-10 lg:px-12",
-  shellWide: "mx-auto flex w-full max-w-7xl flex-col gap-6",
+  page: "min-h-screen bg-[var(--bg-page-gradient)] px-4 py-6 sm:px-10 lg:px-12",
+  shellWide: "mx-auto flex w-full max-w-7xl flex-col gap-4 sm:gap-6",
   shellNarrow: "mx-auto flex w-full max-w-5xl flex-col gap-6",
 
-  panel: "fade-up-enter rounded-[var(--radius-panel)] border border-[var(--border-soft)] bg-[var(--surface-1)] p-6 shadow-[var(--shadow-panel)] sm:p-8",
-  heroPanel: "fade-up-enter flex flex-col gap-4 rounded-[var(--radius-panel)] border border-[var(--border-soft)] bg-[var(--bg-hero-gradient)] p-6 shadow-[var(--shadow-hero)] sm:flex-row sm:items-start sm:justify-between sm:p-8",
-  tile: "rounded-3xl border border-[var(--border-muted)] bg-[var(--surface-2)] p-5",
+  panel: "fade-up-enter rounded-2xl sm:rounded-[var(--radius-panel)] border border-[var(--border-soft)] bg-[var(--surface-1)] p-4 sm:p-6 shadow-[var(--shadow-panel)] sm:p-8",
+  heroPanel: "fade-up-enter relative flex flex-col gap-3 rounded-2xl sm:rounded-[var(--radius-panel)] border border-[var(--border-soft)] bg-[var(--bg-hero-gradient)] p-4 sm:p-6 shadow-[var(--shadow-hero)] sm:flex-row sm:items-start sm:justify-between sm:p-8",
+  tile: "rounded-2xl sm:rounded-3xl border border-[var(--border-muted)] bg-[var(--surface-2)] p-4 sm:p-5",
 
   textMuted: "text-[var(--text-muted)]",
   textSecondary: "text-[var(--text-secondary)]",

@@ -16,12 +16,16 @@ export type AuthenticatedUser = {
 };
 
 export type ExchangeRateType = "OFFICIAL" | "CCL" | "MEP" | "BLUE" | "CRYPTO";
+export type AccountType = "STANDARD" | "CREDIT";
 
 export type Account = {
   id: string;
   name: string;
   currencyCode: string;
   exchangeRateType: ExchangeRateType;
+  accountType: AccountType;
+  fundingAccountId: string | null;
+  paymentDayOfMonth: number | null;
   balanceInAccountCurrency: number;
   balanceUsd: number;
   balanceArs: number;
@@ -48,6 +52,9 @@ export type AccountDetail = {
   name: string;
   currencyCode: string;
   exchangeRateType: ExchangeRateType;
+  accountType: AccountType;
+  fundingAccountId: string | null;
+  paymentDayOfMonth: number | null;
   balanceInAccountCurrency: number;
   balanceUsd: number;
   balanceArs: number;
@@ -83,11 +90,22 @@ export type ApiProblem = {
 export type CreateAccountRequest = {
   name: string;
   currencyCode: string;
+  accountType: AccountType;
+  fundingAccountId?: string;
+  paymentDayOfMonth?: number;
 };
 
 export type UpdateAccountRequest = {
   name?: string;
   exchangeRateType?: ExchangeRateType;
+  accountType?: AccountType;
+  fundingAccountId?: string;
+  paymentDayOfMonth?: number;
+};
+
+export type CreditSettlementProcessResult = {
+  processedCount: number;
+  skippedCount: number;
 };
 
 export type CreateTransactionRequest = {

@@ -2,36 +2,40 @@
 
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 
 import { requestJson, postJson } from "@/lib/api";
 import { buildAuthorizationHeader } from "@/lib/auth-token";
 import {
   Account,
+  AccountDetail,
+  AccountTransaction,
+  AccountType,
   AuthenticatedUser,
   Budget,
-  LiveExchangeRateByType,
+  CreditSettlementProcessResult,
   CreateAccountRequest,
   Category,
   CreateTransactionRequest,
   CreateTransferRequest,
-  ExchangeRateType,
 } from "@/lib/contracts";
-import { clearToken, useStoredToken } from "@/lib/storage";
+import { useStoredToken } from "@/lib/storage";
+import { useUnauthorizedRedirect } from "@/lib/hooks/use-unauthorized-redirect";
 import { ui } from "@/lib/ui";
 import { formatRate } from "@/components/formatters";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { CreateTransactionModal } from "@/components/create-transaction-modal";
 import { CreateTransferModal } from "@/components/create-transfer-modal";
 import { MissingSessionState } from "@/components/missing-session-state";
+import { DashboardSidebar } from "@/components/dashboard-sidebar";
 
 export function DashboardShell() {
-  const router = useRouter();
   const accessToken = useStoredToken();
   const [displayCurrency, setDisplayCurrency] = useState<"USD" | "ARS">("USD");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showTransactionModal, setShowTransactionModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const hasProcessedCreditSettlementsRef = useRef(false);
 
   const queryClient = useQueryClient();
 
@@ -58,21 +62,6 @@ export function DashboardShell() {
     enabled: Boolean(accessToken),
   });
 
-  const liveRatesQuery = useQuery({
-    queryKey: ["live-rates", accessToken, "USD", "ARS"],
-    queryFn: () => {
-      const rateTypesQuery = DASHBOARD_RATE_TYPES.map((rateType) => `rateTypes=${rateType}`).join("&");
-
-      return requestJson<LiveExchangeRateByType[]>(`/api/exchange-rates/live/batch?baseCurrency=USD&targetCurrency=ARS&${rateTypesQuery}`, {
-        headers: {
-          Authorization: buildAuthorizationHeader(accessToken),
-        },
-      });
-    },
-    enabled: Boolean(accessToken),
-    refetchInterval: 60_000,
-  });
-
   const categoriesQuery = useQuery({
     queryKey: ["categories", accessToken],
     queryFn: () =>
@@ -93,6 +82,35 @@ export function DashboardShell() {
         },
       }),
     enabled: Boolean(accessToken),
+  });
+
+  const recentTransactionsQuery = useQuery({
+    queryKey: ["dashboard-recent-transactions", accessToken, (accountsQuery.data ?? []).map((account) => account.id).join(",")],
+    queryFn: async () => {
+      const accounts = accountsQuery.data ?? [];
+
+      const details = await Promise.all(
+        accounts.map((account) =>
+          requestJson<AccountDetail>(`/api/accounts/${account.id}`, {
+            headers: {
+              Authorization: buildAuthorizationHeader(accessToken),
+            },
+          }),
+        ),
+      );
+
+      return details
+        .flatMap((detail) =>
+          detail.transactions.map((transaction) => ({
+            ...transaction,
+            accountId: detail.id,
+            accountName: detail.name,
+          })),
+        )
+        .sort((a, b) => new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime())
+        .slice(0, 10);
+    },
+    enabled: Boolean(accessToken) && Boolean(accountsQuery.data?.length),
   });
 
   const createTransactionMutation = useMutation({
@@ -118,7 +136,18 @@ export function DashboardShell() {
     },
   });
 
+  const processCreditSettlementsMutation = useMutation({
+    mutationFn: () =>
+      postJson<CreditSettlementProcessResult>("/api/creditsettlements/process-due", undefined, {
+        headers: { Authorization: buildAuthorizationHeader(accessToken) },
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["accounts", accessToken] });
+    },
+  });
+
   const portfolioTotals = buildPortfolioTotals(accountsQuery.data ?? []);
+  const quickStats = buildQuickStats(recentTransactionsQuery.data ?? [], accountsQuery.data ?? []);
 
   const createAccountMutation = useMutation({
     mutationFn: (data: CreateAccountRequest) =>
@@ -131,166 +160,224 @@ export function DashboardShell() {
     },
   });
 
+  useEffect(() => {
+    if (!accessToken || hasProcessedCreditSettlementsRef.current) {
+      return;
+    }
+
+    hasProcessedCreditSettlementsRef.current = true;
+    processCreditSettlementsMutation.mutate();
+  }, [accessToken, processCreditSettlementsMutation]);
+
+  useUnauthorizedRedirect([
+    meQuery.error,
+    accountsQuery.error,
+    categoriesQuery.error,
+    budgetsQuery.error,
+    recentTransactionsQuery.error,
+    createTransactionMutation.error,
+    createTransferMutation.error,
+    createAccountMutation.error,
+    processCreditSettlementsMutation.error,
+  ]);
+
   if (!accessToken) {
     return <MissingSessionState />;
   }
 
   return (
-    <main className={ui.page}>
-      <div className={ui.shellWide}>
-        <header className={ui.heroPanel}>
-          <div>
-            <p className="text-2xl font-semibold text-[var(--text-secondary)]">Dashboard</p>
-            <p className={`mt-2 text-lg ${ui.textMuted}`}>Welcome</p>
-            <h1 className={`text-3xl font-semibold tracking-tight sm:text-4xl ${ui.textPrimary}`}>
-              {meQuery.data?.fullName ?? "Loading..."}
-            </h1>
-          </div>
-
-          <div className="flex flex-wrap justify-end gap-3 sm:self-auto">
-            <Link
-              aria-label="Settings"
-              className={`inline-flex items-center justify-center px-3 py-2 ${ui.buttonBase} ${ui.buttonNeutral}`}
-              href="/settings"
-            >
-              <svg aria-hidden="true" className="h-6 w-6" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.573-1.066z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" />
-                <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" />
-              </svg>
-            </Link>
-            <button
-              className={`${ui.buttonBase} ${ui.buttonNeutral}`}
-              onClick={() => {
-                clearToken();
-                router.push("/");
-              }}
-              type="button"
-            >
-              Log out
-            </button>
-          </div>
-        </header>
-
-        {meQuery.isError ? <ErrorBanner message="The current session could not be loaded." /> : null}
-
-        <section className={`${ui.panel} fade-up-enter-delay-1`}>
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <h2 className={`text-2xl font-semibold ${ui.textPrimary}`}>Portfolio total</h2>
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                className={`text-sm ${ui.buttonBase} ${ui.buttonGold}`}
-                onClick={() => setShowTransactionModal(true)}
-                type="button"
-              >
-                + Add Transaction
-              </button>
-              <button
-                className={`text-sm ${ui.buttonBase} ${ui.buttonInfo}`}
-                onClick={() => setShowTransferModal(true)}
-                type="button"
-              >
-                Transfer
-              </button>
-              <Link className={`text-sm ${ui.buttonBase} ${ui.buttonNeutral}`} href="/settings#budgets">
-                Manage Budgets
-              </Link>
-              <select
-                className={ui.select}
-                onChange={(event) => setDisplayCurrency(event.target.value as "USD" | "ARS")}
-                value={displayCurrency}
-              >
-                <option value="USD">USD</option>
-                <option value="ARS">ARS</option>
-              </select>
-            </div>
-          </div>
-
-          <div className={`mt-5 ${ui.tile}`}>
-            <p className={`text-sm ${ui.textMuted}`}>{displayCurrency}</p>
-            <p className={`mt-2 text-3xl font-semibold tracking-tight sm:text-4xl ${ui.textPrimary}`}>
-              {displayCurrency} {formatRate(displayCurrency === "USD" ? portfolioTotals.usd : portfolioTotals.ars)}
-            </p>
-          </div>
-        </section>
-
-        <section className={`${ui.panel} fade-up-enter-delay-1`}>
-          <div className="flex items-center justify-between gap-4">
-            <h2 className={`text-2xl font-semibold ${ui.textPrimary}`}>Accounts</h2>
-            <button
-              className={`text-sm ${ui.buttonBase} ${ui.buttonGold}`}
-              onClick={() => setShowCreateModal(true)}
-            >
-              + Add Account
-            </button>
-          </div>
-
-          <div className="mt-6 grid gap-4">
-            {accountsQuery.isLoading ? <LoadingCard label="Loading accounts..." /> : null}
-            {accountsQuery.isError ? <ErrorBanner message="Accounts could not be loaded." /> : null}
-            {accountsQuery.data?.length === 0 ? <EmptyCard /> : null}
-            {accountsQuery.data?.map((account) => (
-              <Link key={account.id} href={`/accounts/${account.id}`}>
-                <article className="rounded-3xl border border-[var(--border-muted)] bg-[var(--surface-2)] p-5 transition duration-200 hover:-translate-y-0.5 hover:border-[var(--border-strong)] focus-within:border-[var(--border-strong)]">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <p className={`text-lg font-semibold ${ui.textPrimary}`}>{account.name}</p>
-                    <span className={`mt-2 inline-block px-2 py-1 text-[11px] tracking-[0.06em] ${ui.badgeGold}`}>
-                      {account.exchangeRateType}
-                    </span>
-                    <div className={`mt-2 space-y-1 text-sm ${ui.textMuted}`}>
-                      <p>USD {formatRate(account.balanceUsd)}</p>
-                      <p>ARS {formatRate(account.balanceArs)}</p>
-                    </div>
-                  </div>
-                  <span className={ui.badgeSuccess}>
-                    {account.currencyCode}
-                  </span>
-                </div>
-                </article>
-              </Link>
-            ))}
-          </div>
-        </section>
-
-        <section className={`${ui.panel} fade-up-enter-delay-2`}>
-          <h2 className={`text-2xl font-semibold ${ui.textPrimary}`}>Monthly budgets</h2>
-
-          <div className={`mt-5 ${ui.tile}`}>
-            {budgetsQuery.isLoading ? <LoadingCard label="Loading budgets..." /> : null}
-            {budgetsQuery.isError ? <ErrorBanner message="Budgets could not be loaded." /> : null}
-            {budgetsQuery.data?.length === 0 ? (
-              <div className={`rounded-3xl border border-dashed border-[var(--border-dashed)] bg-[var(--surface-2)] p-6 text-sm ${ui.textMuted}`}>
-                No budgets yet. Add category budgets in settings.
+    <div className="flex min-h-screen">
+      <DashboardSidebar />
+      {showMenu ? <DashboardSidebar mobile onClose={() => setShowMenu(false)} /> : null}
+      <main className={`flex-1 lg:pl-20 2xl:pl-64 ${ui.page}`}>
+        <div className={ui.shellWide}>
+          <header className={`${ui.heroPanel} relative bg-[linear-gradient(140deg,rgba(23,34,30,0.95),rgba(15,24,22,0.9))]`}>
+            <div className="flex items-center justify-between w-full">
+              <div>
+                <p className={`text-lg font-semibold sm:text-2xl ${ui.textPrimary}`}>
+                  {meQuery.data?.fullName ?? "Loading..."}
+                </p>
+                <p className={`mt-1 text-sm ${ui.textMuted}`}>Overview of your accounts, activity, and budgets.</p>
               </div>
-            ) : null}
-            {budgetsQuery.data?.length ? <BudgetOverview budgets={budgetsQuery.data} /> : null}
-          </div>
-        </section>
 
-        <section className={`${ui.panel} fade-up-enter-delay-2`}>
-          <h2 className={`text-2xl font-semibold ${ui.textPrimary}`}>USD / ARS rates</h2>
+              <button
+                aria-label="Menu"
+                className="p-2 rounded-xl border border-[var(--border-strong)] hover:border-[var(--border-strong-hover)] transition lg:hidden"
+                onClick={() => setShowMenu(!showMenu)}
+                type="button"
+              >
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  {showMenu ? (
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  ) : (
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                  )}
+                </svg>
+              </button>
+            </div>
+          </header>
 
-          <div className={`mt-5 ${ui.tile}`}>
-            {liveRatesQuery.isLoading ? <LoadingCard label="Loading exchange rates..." /> : null}
-            {liveRatesQuery.isError ? <ErrorBanner message="Exchange rates could not be loaded." /> : null}
-            {liveRatesQuery.data ? (
-              <div className="grid gap-4 md:grid-cols-2">
-                {liveRatesQuery.data.map((entry) => (
-                  <article key={entry.rateType} className="rounded-2xl border border-[var(--border-muted)] bg-[var(--surface-3)] p-4">
-                    <p className={`text-xs font-medium uppercase tracking-[0.16em] ${ui.textMuted}`}>{entry.rateType}</p>
-                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                      <RateCard label="Buy" value={formatRate(entry.rate.buyRate)} />
-                      <RateCard label="Sell" value={formatRate(entry.rate.sellRate)} />
-                    </div>
-                  </article>
+          {meQuery.isError ? <ErrorBanner message="The current session could not be loaded." /> : null}
+
+          <section className={`${ui.panel} fade-up-enter-delay-1 bg-[linear-gradient(165deg,rgba(25,36,33,0.92),rgba(17,25,23,0.92))]`}>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <h2 className={`text-xl sm:text-2xl font-semibold ${ui.textPrimary}`}>Portfolio total</h2>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  className={`text-sm ${ui.buttonBase} ${ui.buttonGold}`}
+                  onClick={() => setShowTransactionModal(true)}
+                  type="button"
+                >
+                  + Add transaction
+                </button>
+                <button
+                  className={`text-sm ${ui.buttonBase} ${ui.buttonInfo}`}
+                  onClick={() => setShowTransferModal(true)}
+                  type="button"
+                >
+                  Transfer
+                </button>
+                <Link className={`text-sm ${ui.buttonBase} ${ui.buttonNeutral}`} href="/settings#budgets">
+                  Budgets
+                </Link>
+                <select
+                  className={ui.select}
+                  onChange={(event) => setDisplayCurrency(event.target.value as "USD" | "ARS")}
+                  value={displayCurrency}
+                >
+                  <option value="USD">USD</option>
+                  <option value="ARS">ARS</option>
+                </select>
+              </div>
+            </div>
+
+            <div className={`mt-4 sm:mt-5 ${ui.tile} border-[var(--accent-gold-border)] bg-[linear-gradient(165deg,rgba(16,24,22,0.9),rgba(15,21,20,0.9))]`}>
+              <p className={`text-sm ${ui.textMuted}`}>{displayCurrency}</p>
+              <p className={`mt-1 text-2xl font-semibold tracking-tight sm:text-4xl ${ui.textPrimary}`}>
+                {displayCurrency} {formatRate(displayCurrency === "USD" ? portfolioTotals.usd : portfolioTotals.ars)}
+              </p>
+            </div>
+          </section>
+
+          <section className="fade-up-enter-delay-1 grid gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <QuickStatCard label="Income (month)" value={`USD ${formatRate(quickStats.incomeUsd)}`} tone="income" />
+            <QuickStatCard label="Expenses (month)" value={`USD ${formatRate(quickStats.expenseUsd)}`} tone="expense" />
+            <QuickStatCard label="Net change" value={`USD ${formatRate(quickStats.netUsd)}`} tone={quickStats.netUsd >= 0 ? "income" : "expense"} />
+            <QuickStatCard label="Credit due soon" value={quickStats.creditDueLabel} tone={quickStats.hasCreditDueSoon ? "warning" : "neutral"} />
+          </section>
+
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
+            <section className={`${ui.panel} fade-up-enter-delay-1`}>
+              <div className="flex items-center justify-between gap-3">
+                <h2 className={`text-xl sm:text-2xl font-semibold ${ui.textPrimary}`}>Accounts</h2>
+                <button
+                  className={`text-sm ${ui.buttonBase} ${ui.buttonGold}`}
+                  onClick={() => setShowCreateModal(true)}
+                  type="button"
+                >
+                  + Add
+                </button>
+              </div>
+
+              <div className="mt-4 grid gap-3 sm:gap-4 sm:grid-cols-2">
+                {accountsQuery.isLoading ? <LoadingCard label="Loading accounts..." /> : null}
+                {accountsQuery.isError ? <ErrorBanner message="Accounts could not be loaded." /> : null}
+                {accountsQuery.data?.length === 0 ? <EmptyCard onCreateAccount={() => setShowCreateModal(true)} /> : null}
+                {accountsQuery.data?.map((account) => (
+                  <Link key={account.id} href={`/accounts/${account.id}`}>
+                    <article className="rounded-2xl border border-[var(--border-muted)] bg-[linear-gradient(165deg,rgba(19,27,25,0.94),rgba(16,23,21,0.94))] p-4 transition duration-200 hover:-translate-y-0.5 hover:border-[var(--border-strong)] focus-within:border-[var(--border-strong)]">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className={`text-base font-semibold truncate ${ui.textPrimary}`}>{account.name}</p>
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <span className={`inline-block px-2 py-0.5 text-[10px] tracking-[0.06em] ${ui.badgeGold}`}>
+                              {account.exchangeRateType}
+                            </span>
+                            <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] tracking-[0.06em] ${account.accountType === "CREDIT" ? "border-[var(--state-info-border)] bg-[var(--state-info-soft)] text-[var(--state-info)]" : "border-[var(--border-muted)] bg-[var(--surface-3)] text-[var(--text-muted)]"}`}>
+                              <span>{getAccountTypeIcon(account.accountType)}</span>
+                              {formatAccountTypeLabel(account.accountType)}
+                            </span>
+                          </div>
+                          {account.accountType === "CREDIT" ? (
+                            <p className={`mt-2 text-xs ${ui.textMuted}`}>
+                              Pays day {account.paymentDayOfMonth ?? "-"} from {resolveFundingAccountName(accountsQuery.data ?? [], account.fundingAccountId)}
+                            </p>
+                          ) : null}
+                          <div className={`mt-2 space-y-1 text-sm ${ui.textMuted}`}>
+                            <p>USD {formatRate(account.balanceUsd)}</p>
+                            <p>ARS {formatRate(account.balanceArs)}</p>
+                          </div>
+                        </div>
+                        <span className={ui.badgeSuccess}>{account.currencyCode}</span>
+                      </div>
+                    </article>
+                  </Link>
                 ))}
               </div>
-            ) : null}
+            </section>
+
+            <div className="grid gap-4 auto-rows-min">
+              <section className={`${ui.panel} fade-up-enter-delay-1`}>
+                <div className="flex items-center justify-between gap-3">
+                  <h2 className={`text-xl font-semibold ${ui.textPrimary}`}>Recent activity</h2>
+                  <span className={ui.badgeInfo}>{recentTransactionsQuery.data?.length ?? 0}</span>
+                </div>
+
+                <div className="mt-4 grid gap-3">
+                  {recentTransactionsQuery.isLoading ? <LoadingCard label="Loading recent transactions..." /> : null}
+                  {recentTransactionsQuery.isError ? <ErrorBanner message="Recent transactions could not be loaded." /> : null}
+                  {recentTransactionsQuery.data?.length === 0 ? <EmptyTransactionsCard onCreateTransaction={() => setShowTransactionModal(true)} /> : null}
+                  {recentTransactionsQuery.data?.slice(0, 8).map((transaction) => (
+                    <article key={transaction.id} className="rounded-2xl border border-[var(--border-muted)] bg-[var(--surface-2)] p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className={`inline-flex items-center gap-2 text-sm font-semibold ${ui.textPrimary}`}>
+                            <span>{getTransactionIcon(transaction)}</span>
+                            <span className="truncate">{transaction.description || "Transaction"}</span>
+                          </p>
+                          <p className={`mt-1 text-xs ${ui.textMuted}`}>{transaction.accountName} - {formatDateTime(transaction.transactionDate)}</p>
+                          {transaction.categoryName ? (
+                            <span className={`mt-2 inline-flex items-center gap-1 rounded-full border border-[var(--accent-gold-border)] bg-[var(--accent-gold-soft)] px-2 py-0.5 text-[10px] text-[var(--accent-gold-text)]`}>
+                              <span>{getCategoryIcon(transaction.categoryName)}</span>
+                              {transaction.categoryName}
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="text-right">
+                          <p className={`text-xs uppercase tracking-[0.12em] ${transaction.transactionType === "EXPENSE" ? ui.textExpense : ui.textIncome}`}>
+                            {transaction.transactionType}
+                          </p>
+                          <p className={`text-sm font-semibold ${transaction.transactionType === "EXPENSE" ? "text-[var(--state-danger)]" : ui.textPrimary}`}>
+                            {transaction.currency} {formatRate(transaction.amount)}
+                          </p>
+                        </div>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </section>
+
+              <section className={`${ui.panel} fade-up-enter-delay-2`}>
+                <h2 className={`text-xl font-semibold ${ui.textPrimary}`}>Monthly budgets</h2>
+
+                <div className={`mt-4 ${ui.tile}`}>
+                  {budgetsQuery.isLoading ? <LoadingCard label="Loading budgets..." /> : null}
+                  {budgetsQuery.isError ? <ErrorBanner message="Budgets could not be loaded." /> : null}
+                  {budgetsQuery.data?.length === 0 ? (
+                    <div className={`rounded-2xl border border-dashed border-[var(--border-dashed)] bg-[var(--surface-2)] p-4 sm:p-6 text-sm ${ui.textMuted}`}>
+                      <p className="inline-flex items-center gap-2"><span>[BG]</span>No budgets yet.</p>
+                      <Link className={`mt-3 inline-flex ${ui.buttonBase} ${ui.buttonNeutral}`} href="/settings#budgets">Create budget</Link>
+                    </div>
+                  ) : null}
+                  {budgetsQuery.data?.length ? <BudgetOverview budgets={budgetsQuery.data} /> : null}
+                </div>
+              </section>
+            </div>
           </div>
-        </section>
-      </div>
+        </div>
       {showCreateModal ? (
         <CreateAccountModal
+          accounts={accountsQuery.data ?? []}
           error={createAccountMutation.isError ? (createAccountMutation.error as Error).message : null}
           isLoading={createAccountMutation.isPending}
           onClose={() => setShowCreateModal(false)}
@@ -316,11 +403,10 @@ export function DashboardShell() {
           onSubmit={(data) => createTransferMutation.mutate(data)}
         />
       ) : null}
-    </main>
+      </main>
+    </div>
   );
 }
-
-const DASHBOARD_RATE_TYPES: ExchangeRateType[] = ["OFFICIAL", "BLUE", "CCL", "CRYPTO"];
 
 function buildPortfolioTotals(accounts: Account[]) {
   return accounts.reduce(
@@ -333,14 +419,86 @@ function buildPortfolioTotals(accounts: Account[]) {
   );
 }
 
-function RateCard({ label, value }: { label: string; value: string }) {
+type DashboardRecentTransaction = AccountTransaction & {
+  accountId: string;
+  accountName: string;
+};
+
+type QuickStats = {
+  incomeUsd: number;
+  expenseUsd: number;
+  netUsd: number;
+  hasCreditDueSoon: boolean;
+  creditDueLabel: string;
+};
+
+function buildQuickStats(transactions: DashboardRecentTransaction[], accounts: Account[]): QuickStats {
+  const now = new Date();
+  const month = now.getMonth();
+  const year = now.getFullYear();
+
+  const monthly = transactions.filter((transaction) => {
+    const date = new Date(transaction.transactionDate);
+    return date.getMonth() === month && date.getFullYear() === year;
+  });
+
+  const incomeUsd = monthly
+    .filter((transaction) => transaction.transactionType === "INCOME")
+    .reduce((sum, transaction) => sum + transaction.convertedAmountUsd, 0);
+  const expenseUsd = monthly
+    .filter((transaction) => transaction.transactionType === "EXPENSE")
+    .reduce((sum, transaction) => sum + Math.abs(transaction.convertedAmountUsd), 0);
+
+  const creditAccounts = accounts.filter((account) => account.accountType === "CREDIT" && account.paymentDayOfMonth);
+  let creditDueLabel = "No credit cards";
+  let hasCreditDueSoon = false;
+
+  if (creditAccounts.length > 0) {
+    const nowDay = now.getDate();
+    const dueInDays = creditAccounts
+      .map((account) => {
+        const dueDay = account.paymentDayOfMonth ?? nowDay;
+        return dueDay >= nowDay ? dueDay - nowDay : 31 - nowDay + dueDay;
+      })
+      .sort((a, b) => a - b)[0];
+
+    hasCreditDueSoon = dueInDays <= 7;
+    creditDueLabel = dueInDays === 0 ? "Due today" : `In ${dueInDays} day${dueInDays === 1 ? "" : "s"}`;
+  }
+
+  return {
+    incomeUsd,
+    expenseUsd,
+    netUsd: incomeUsd - expenseUsd,
+    hasCreditDueSoon,
+    creditDueLabel,
+  };
+}
+
+function QuickStatCard({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: "income" | "expense" | "warning" | "neutral";
+}) {
+  const toneClass = tone === "income"
+    ? "border-[var(--state-success-border)] bg-[linear-gradient(160deg,rgba(16,36,29,0.9),rgba(16,28,24,0.9))]"
+    : tone === "expense"
+      ? "border-[var(--state-danger-border)] bg-[linear-gradient(160deg,rgba(40,20,25,0.44),rgba(26,19,22,0.4))]"
+      : tone === "warning"
+        ? "border-[var(--accent-gold-border)] bg-[linear-gradient(160deg,rgba(51,46,31,0.35),rgba(24,23,19,0.45))]"
+        : "border-[var(--border-muted)] bg-[var(--surface-2)]";
+
   return (
-    <div className="rounded-3xl border border-[var(--border-muted)] bg-[var(--surface-3)] p-5">
-      <p className={`text-sm ${ui.textMuted}`}>{label}</p>
-      <p className={`mt-2 overflow-hidden text-ellipsis whitespace-nowrap text-xl font-semibold leading-none tracking-tight sm:text-2xl ${ui.textPrimary}`}>
+    <article className={`rounded-2xl border p-4 ${toneClass}`}>
+      <p className={`text-xs uppercase tracking-[0.14em] ${ui.textMuted}`}>{label}</p>
+      <p className={`mt-2 text-lg font-semibold sm:text-xl ${ui.textPrimary}`}>
         {value}
       </p>
-    </div>
+    </article>
   );
 }
 
@@ -372,10 +530,10 @@ function BudgetOverview({ budgets }: { budgets: Budget[] }) {
   );
 
   return (
-    <div className="grid gap-4">
-      <div className="rounded-2xl border border-[var(--border-muted)] bg-[var(--surface-3)] p-4">
+    <div className="grid gap-3 sm:gap-4">
+      <div className="rounded-xl sm:rounded-2xl border border-[var(--border-muted)] bg-[linear-gradient(165deg,rgba(18,25,23,0.95),rgba(15,22,20,0.95))] p-3 sm:p-4">
         <p className={`text-xs uppercase tracking-[0.16em] ${ui.textMuted}`}>{monthLabel}</p>
-        <div className={`mt-2 flex flex-wrap gap-x-6 gap-y-1 text-sm ${ui.textPrimary}`}>
+        <div className={`mt-1 sm:mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm ${ui.textPrimary}`}>
           <span>
             USD {formatRate(totalsByCurrency.totalSpentUsd)} / {formatRate(totalsByCurrency.totalBudgetUsd)}
           </span>
@@ -386,32 +544,40 @@ function BudgetOverview({ budgets }: { budgets: Budget[] }) {
       </div>
       {budgets.map((budget) => {
         const progress = Math.min(100, Math.max(0, budget.usagePercentage));
+        const isHighUsage = budget.usagePercentage >= 80;
+        const isExceeded = budget.usagePercentage >= 100;
         const progressBarClass = budget.usagePercentage >= 100
-          ? "bg-[var(--state-danger)]"
+          ? "bg-[linear-gradient(90deg,rgba(244,63,94,0.95),rgba(244,63,94,0.7))]"
           : budget.usagePercentage >= 80
-            ? "bg-[var(--accent-gold)]"
-            : "bg-[var(--state-success)]";
+            ? "bg-[linear-gradient(90deg,rgba(219,201,163,0.95),rgba(219,201,163,0.65))]"
+            : "bg-[linear-gradient(90deg,rgba(110,231,183,0.95),rgba(110,231,183,0.7))]";
 
         return (
           <article
             key={budget.id}
-            className="rounded-2xl border border-[var(--border-muted)] bg-[var(--surface-3)] p-4"
+            className={`rounded-xl sm:rounded-2xl border p-3 sm:p-4 ${isExceeded ? "border-[var(--state-danger-border)] bg-[var(--state-danger-soft)]" : "border-[var(--border-muted)] bg-[var(--surface-3)]"}`}
           >
-            <div className="flex items-center justify-between gap-3">
-              <p className={`font-medium ${ui.textPrimary}`}>{budget.categoryName}</p>
+            <div className="flex items-center justify-between gap-2">
+              <p className={`font-medium text-sm sm:text-base ${ui.textPrimary}`}>{budget.categoryName}</p>
               <p className={`text-sm ${ui.textMuted}`}>
                 {budget.currency} {formatRate(budget.spentAmount)} / {formatRate(budget.amount)}
               </p>
             </div>
-            <div className="mt-3 h-2 rounded-full bg-[var(--surface-2)]">
-              <div className={`h-2 rounded-full ${progressBarClass}`} style={{ width: `${progress}%` }} />
+            <div className="mt-2 h-2.5 sm:h-3 rounded-full bg-[var(--surface-2)]">
+              <div className={`h-2.5 sm:h-3 rounded-full shadow-[0_0_14px_rgba(219,201,163,0.35)] ${progressBarClass}`} style={{ width: `${progress}%` }} />
             </div>
-            <div className={`mt-2 flex items-center justify-between text-xs ${ui.textMuted}`}>
+            <div className={`mt-1.5 flex items-center justify-between text-xs ${ui.textMuted}`}>
               <span>{formatRate(budget.usagePercentage)}%</span>
-              <span>
+              <span className="inline-flex items-center gap-1 rounded-full border border-[var(--border-muted)] bg-[var(--surface-2)] px-2 py-0.5">
                 Remaining: {budget.currency} {formatRate(budget.remainingAmount)}
               </span>
             </div>
+            {isHighUsage ? (
+              <p className={`mt-2 inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] ${isExceeded ? "border-[var(--state-danger-border)] text-[var(--state-danger)] bg-[var(--state-danger-soft)]" : "border-[var(--accent-gold-border)] text-[var(--accent-gold-text)] bg-[var(--accent-gold-soft)]"}`}>
+                <span>{isExceeded ? "!!" : "!"}</span>
+                {isExceeded ? "Budget exceeded" : "Approaching budget limit"}
+              </p>
+            ) : null}
           </article>
         );
       })}
@@ -419,12 +585,97 @@ function BudgetOverview({ budgets }: { budgets: Budget[] }) {
   );
 }
 
-function LoadingCard({ label }: { label: string }) {
-  return <div className={`rounded-3xl border border-[var(--border-muted)] bg-[var(--surface-2)] p-5 text-sm ${ui.textMuted}`}>{label}</div>;
+function formatAccountTypeLabel(accountType: AccountType) {
+  return accountType === "CREDIT" ? "Credit" : "Standard";
 }
 
-function EmptyCard() {
-  return <div className={`rounded-3xl border border-dashed border-[var(--border-dashed)] bg-[var(--surface-2)] p-6 text-sm ${ui.textMuted}`}>No accounts.</div>;
+function getAccountTypeIcon(accountType: AccountType) {
+  return accountType === "CREDIT" ? "[CC]" : "[BK]";
+}
+
+function getCategoryIcon(categoryName: string) {
+  const value = categoryName.toLowerCase();
+
+  if (value.includes("food") || value.includes("grocery")) {
+    return "[FD]";
+  }
+
+  if (value.includes("transport") || value.includes("fuel")) {
+    return "[TR]";
+  }
+
+  if (value.includes("salary") || value.includes("income")) {
+    return "[IN]";
+  }
+
+  return "[CT]";
+}
+
+function getTransactionIcon(transaction: DashboardRecentTransaction) {
+  if (transaction.transferGroupId) {
+    return "[TF]";
+  }
+
+  if (transaction.transactionType === "EXPENSE") {
+    return "[-]";
+  }
+
+  if (transaction.transactionType === "INCOME") {
+    return "[+]";
+  }
+
+  return "[TX]";
+}
+
+function formatDateTime(value: string) {
+  return new Date(value).toLocaleString(undefined, {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function resolveFundingAccountName(accounts: Account[], fundingAccountId: string | null) {
+  if (!fundingAccountId) {
+    return "-";
+  }
+
+  return accounts.find((account) => account.id === fundingAccountId)?.name ?? "Unknown account";
+}
+
+function resolveFundingAccountDraftId(accounts: Account[], draftFundingAccountId: string) {
+  if (accounts.length === 0) {
+    return "";
+  }
+
+  return accounts.some((account) => account.id === draftFundingAccountId)
+    ? draftFundingAccountId
+    : accounts[0].id;
+}
+
+function LoadingCard({ label }: { label: string }) {
+  return <div className={`rounded-2xl border border-[var(--border-muted)] bg-[var(--surface-2)] p-4 text-sm ${ui.textMuted}`}>{label}</div>;
+}
+
+function EmptyCard({ onCreateAccount }: { onCreateAccount: () => void }) {
+  return (
+    <div className={`rounded-2xl border border-dashed border-[var(--border-dashed)] bg-[var(--surface-2)] p-5 text-sm ${ui.textMuted}`}>
+      <p className="inline-flex items-center gap-2 text-sm">[AC] No accounts yet.</p>
+      <p className="mt-2">Create your first account to start tracking balances and transactions.</p>
+      <button className={`mt-3 text-sm ${ui.buttonBase} ${ui.buttonGold}`} onClick={onCreateAccount} type="button">Create account</button>
+    </div>
+  );
+}
+
+function EmptyTransactionsCard({ onCreateTransaction }: { onCreateTransaction: () => void }) {
+  return (
+    <div className={`rounded-2xl border border-dashed border-[var(--border-dashed)] bg-[var(--surface-2)] p-5 text-sm ${ui.textMuted}`}>
+      <p className="inline-flex items-center gap-2 text-sm">[TX] No recent transactions.</p>
+      <p className="mt-2">Add your first transaction to get monthly insights and activity trends.</p>
+      <button className={`mt-3 text-sm ${ui.buttonBase} ${ui.buttonInfo}`} onClick={onCreateTransaction} type="button">Add transaction</button>
+    </div>
+  );
 }
 
 function ErrorBanner({ message }: { message: string }) {
@@ -432,11 +683,13 @@ function ErrorBanner({ message }: { message: string }) {
 }
 
 function CreateAccountModal({
+  accounts,
   onClose,
   onSubmit,
   isLoading,
   error,
 }: {
+  accounts: Account[];
   onClose: () => void;
   onSubmit: (data: CreateAccountRequest) => void;
   isLoading: boolean;
@@ -445,6 +698,20 @@ function CreateAccountModal({
   const titleId = useId();
   const [name, setName] = useState("");
   const [currencyCode, setCurrencyCode] = useState("USD");
+  const [accountType, setAccountType] = useState<AccountType>("STANDARD");
+  const eligibleFundingAccounts = accounts.filter((account) => account.accountType === "STANDARD");
+  const [fundingAccountId, setFundingAccountId] = useState(eligibleFundingAccounts[0]?.id ?? "");
+  const [paymentDayOfMonth, setPaymentDayOfMonth] = useState("1");
+  const parsedPaymentDayOfMonth = Number(paymentDayOfMonth);
+  const isCreditAccount = accountType === "CREDIT";
+  const resolvedFundingAccountId = resolveFundingAccountDraftId(eligibleFundingAccounts, fundingAccountId);
+  const hasValidCreditSettings =
+    !isCreditAccount ||
+    (Boolean(resolvedFundingAccountId) &&
+      Number.isInteger(parsedPaymentDayOfMonth) &&
+      parsedPaymentDayOfMonth >= 1 &&
+      parsedPaymentDayOfMonth <= 28);
+  const canSubmit = name.trim().length > 0 && hasValidCreditSettings;
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -461,7 +728,19 @@ function CreateAccountModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit({ name, currencyCode });
+
+    const payload: CreateAccountRequest = {
+      name,
+      currencyCode,
+      accountType,
+    };
+
+    if (isCreditAccount) {
+      payload.fundingAccountId = resolvedFundingAccountId;
+      payload.paymentDayOfMonth = parsedPaymentDayOfMonth;
+    }
+
+    onSubmit(payload);
   };
 
   return (
@@ -497,6 +776,53 @@ function CreateAccountModal({
               <option value="ARS">ARS - Argentine Peso</option>
             </select>
           </div>
+          <div>
+            <label className={`block text-sm ${ui.textMuted}`}>Account Type</label>
+            <select
+              className={`mt-1 w-full ${ui.input}`}
+              onChange={(event) => setAccountType(event.target.value as AccountType)}
+              value={accountType}
+            >
+              <option value="STANDARD">Standard</option>
+              <option value="CREDIT">Credit card</option>
+            </select>
+          </div>
+          {isCreditAccount ? (
+            <>
+              <div>
+                <label className={`block text-sm ${ui.textMuted}`}>Funding Account</label>
+                <select
+                  className={`mt-1 w-full ${ui.input}`}
+                  onChange={(event) => setFundingAccountId(event.target.value)}
+                  required
+                  value={resolvedFundingAccountId}
+                >
+                  {eligibleFundingAccounts.length === 0 ? <option value="">No eligible standard accounts</option> : null}
+                  {eligibleFundingAccounts.map((account) => (
+                    <option key={account.id} value={account.id}>
+                      {account.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className={`block text-sm ${ui.textMuted}`}>Payment Day of Month</label>
+                <input
+                  className={`mt-1 w-full ${ui.input}`}
+                  max={28}
+                  min={1}
+                  onChange={(event) => setPaymentDayOfMonth(event.target.value)}
+                  required
+                  type="number"
+                  value={paymentDayOfMonth}
+                />
+                <p className={`mt-1 text-xs ${ui.textMuted}`}>Valid range: 1 to 28.</p>
+              </div>
+            </>
+          ) : null}
+          {isCreditAccount && eligibleFundingAccounts.length === 0 ? (
+            <p className="text-sm text-[var(--state-danger)]">Create a standard account first to fund credit payments.</p>
+          ) : null}
           {error ? <p className="text-sm text-[var(--state-danger)]">{error}</p> : null}
           <div className="mt-2 flex gap-3">
             <button
@@ -508,7 +834,7 @@ function CreateAccountModal({
             </button>
             <button
               className={`flex-1 ${ui.buttonBase} ${ui.buttonSolidGold}`}
-              disabled={isLoading}
+              disabled={isLoading || !canSubmit}
               type="submit"
             >
               {isLoading ? "Creating..." : "Create"}

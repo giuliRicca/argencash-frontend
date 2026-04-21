@@ -7,7 +7,7 @@ import { BrandLogo } from "@/components/brand-logo";
 import { useStoredToken } from "@/lib/storage";
 
 const securedPathPrefixes = ["/dashboard", "/settings", "/accounts"];
-const hiddenBrandPaths = new Set(["/", "/login", "/register"]);
+const hiddenBrandPaths = new Set(["/", "/login", "/register", "/unauthorized", "/dashboard"]);
 
 export function GlobalBrand() {
   const pathname = usePathname();
