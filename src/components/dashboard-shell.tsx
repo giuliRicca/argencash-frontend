@@ -7,22 +7,20 @@ import { requestJson, postJson } from "@/lib/api";
 import { buildAuthorizationHeader } from "@/lib/auth-token";
 import {
   Account,
-  AccountDetail,
-  AccountTransaction,
   AccountType,
   AuthenticatedUser,
   Budget,
-  CreditSettlementProcessResult,
   CreateAccountRequest,
   Category,
   CreateTransactionRequest,
   CreateTransferRequest,
+  DashboardRecentTransaction,
 } from "@/lib/contracts";
 import { useStoredToken } from "@/lib/storage";
 import { useUnauthorizedRedirect } from "@/lib/hooks/use-unauthorized-redirect";
 import { ui } from "@/lib/ui";
 import { formatRate } from "@/components/formatters";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { CreateTransactionModal } from "@/components/create-transaction-modal";
 import { CreateTransferModal } from "@/components/create-transfer-modal";
 import { MissingSessionState } from "@/components/missing-session-state";
@@ -35,7 +33,7 @@ export function DashboardShell() {
   const [showTransactionModal, setShowTransactionModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
-  const hasProcessedCreditSettlementsRef = useRef(false);
+  const [hasLoadedRecentActivity, setHasLoadedRecentActivity] = useState(false);
 
   const queryClient = useQueryClient();
 
@@ -49,6 +47,8 @@ export function DashboardShell() {
       }),
     enabled: Boolean(accessToken),
     retry: false,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 
   const accountsQuery = useQuery({
@@ -60,6 +60,9 @@ export function DashboardShell() {
         },
       }),
     enabled: Boolean(accessToken),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    retry: 1,
   });
 
   const categoriesQuery = useQuery({
@@ -71,6 +74,9 @@ export function DashboardShell() {
         },
       }),
     enabled: Boolean(accessToken),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    retry: 1,
   });
 
   const budgetsQuery = useQuery({
@@ -82,35 +88,23 @@ export function DashboardShell() {
         },
       }),
     enabled: Boolean(accessToken),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    retry: 1,
   });
 
   const recentTransactionsQuery = useQuery({
-    queryKey: ["dashboard-recent-transactions", accessToken, (accountsQuery.data ?? []).map((account) => account.id).join(",")],
-    queryFn: async () => {
-      const accounts = accountsQuery.data ?? [];
-
-      const details = await Promise.all(
-        accounts.map((account) =>
-          requestJson<AccountDetail>(`/api/accounts/${account.id}`, {
-            headers: {
-              Authorization: buildAuthorizationHeader(accessToken),
-            },
-          }),
-        ),
-      );
-
-      return details
-        .flatMap((detail) =>
-          detail.transactions.map((transaction) => ({
-            ...transaction,
-            accountId: detail.id,
-            accountName: detail.name,
-          })),
-        )
-        .sort((a, b) => new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime())
-        .slice(0, 10);
-    },
-    enabled: Boolean(accessToken) && Boolean(accountsQuery.data?.length),
+    queryKey: ["dashboard-recent-transactions", accessToken],
+    queryFn: () =>
+      requestJson<DashboardRecentTransaction[]>("/api/transactions/recent?limit=10", {
+        headers: {
+          Authorization: buildAuthorizationHeader(accessToken),
+        },
+      }),
+    enabled: Boolean(accessToken) && hasLoadedRecentActivity,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+    retry: 1,
   });
 
   const createTransactionMutation = useMutation({
@@ -136,16 +130,6 @@ export function DashboardShell() {
     },
   });
 
-  const processCreditSettlementsMutation = useMutation({
-    mutationFn: () =>
-      postJson<CreditSettlementProcessResult>("/api/creditsettlements/process-due", undefined, {
-        headers: { Authorization: buildAuthorizationHeader(accessToken) },
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["accounts", accessToken] });
-    },
-  });
-
   const portfolioTotals = buildPortfolioTotals(accountsQuery.data ?? []);
   const quickStats = buildQuickStats(recentTransactionsQuery.data ?? [], accountsQuery.data ?? []);
 
@@ -161,13 +145,18 @@ export function DashboardShell() {
   });
 
   useEffect(() => {
-    if (!accessToken || hasProcessedCreditSettlementsRef.current) {
+    if (!accessToken || hasLoadedRecentActivity) {
       return;
     }
 
-    hasProcessedCreditSettlementsRef.current = true;
-    processCreditSettlementsMutation.mutate();
-  }, [accessToken, processCreditSettlementsMutation]);
+    const timeoutId = window.setTimeout(() => {
+      setHasLoadedRecentActivity(true);
+    }, 600);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [accessToken, hasLoadedRecentActivity]);
 
   useUnauthorizedRedirect([
     meQuery.error,
@@ -178,7 +167,6 @@ export function DashboardShell() {
     createTransactionMutation.error,
     createTransferMutation.error,
     createAccountMutation.error,
-    processCreditSettlementsMutation.error,
   ]);
 
   if (!accessToken) {
@@ -240,6 +228,15 @@ export function DashboardShell() {
                 <Link className={`text-sm ${ui.buttonBase} ${ui.buttonNeutral}`} href="/settings#budgets">
                   Budgets
                 </Link>
+              </div>
+            </div>
+
+            <div className={`mt-4 sm:mt-5 ${ui.tile} border-[var(--accent-gold-border)] bg-[linear-gradient(165deg,rgba(16,24,22,0.9),rgba(15,21,20,0.9))]`}>
+              <p className={`text-sm ${ui.textMuted}`}>{displayCurrency}</p>
+              <p className={`mt-1 text-2xl font-semibold tracking-tight sm:text-4xl ${ui.textPrimary}`}>
+                {displayCurrency} {formatRate(displayCurrency === "USD" ? portfolioTotals.usd : portfolioTotals.ars)}
+              </p>
+              <div className="mt-3 flex justify-start sm:justify-end">
                 <select
                   className={ui.select}
                   onChange={(event) => setDisplayCurrency(event.target.value as "USD" | "ARS")}
@@ -249,13 +246,6 @@ export function DashboardShell() {
                   <option value="ARS">ARS</option>
                 </select>
               </div>
-            </div>
-
-            <div className={`mt-4 sm:mt-5 ${ui.tile} border-[var(--accent-gold-border)] bg-[linear-gradient(165deg,rgba(16,24,22,0.9),rgba(15,21,20,0.9))]`}>
-              <p className={`text-sm ${ui.textMuted}`}>{displayCurrency}</p>
-              <p className={`mt-1 text-2xl font-semibold tracking-tight sm:text-4xl ${ui.textPrimary}`}>
-                {displayCurrency} {formatRate(displayCurrency === "USD" ? portfolioTotals.usd : portfolioTotals.ars)}
-              </p>
             </div>
           </section>
 
@@ -418,11 +408,6 @@ function buildPortfolioTotals(accounts: Account[]) {
     { usd: 0, ars: 0 },
   );
 }
-
-type DashboardRecentTransaction = AccountTransaction & {
-  accountId: string;
-  accountName: string;
-};
 
 type QuickStats = {
   incomeUsd: number;
