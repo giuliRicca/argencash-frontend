@@ -10,7 +10,6 @@ import {
   AccountType,
   AuthenticatedUser,
   Budget,
-  CreditSettlementProcessResult,
   CreateAccountRequest,
   Category,
   CreateTransactionRequest,
@@ -131,17 +130,6 @@ export function DashboardShell() {
     },
   });
 
-  const processCreditSettlementsMutation = useMutation({
-    mutationFn: () =>
-      postJson<CreditSettlementProcessResult>("/api/creditsettlements/process-due", undefined, {
-        headers: { Authorization: buildAuthorizationHeader(accessToken) },
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["accounts", accessToken] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard-recent-transactions", accessToken] });
-    },
-  });
-
   const portfolioTotals = buildPortfolioTotals(accountsQuery.data ?? []);
   const quickStats = buildQuickStats(recentTransactionsQuery.data ?? [], accountsQuery.data ?? []);
 
@@ -156,6 +144,20 @@ export function DashboardShell() {
     },
   });
 
+  useEffect(() => {
+    if (!accessToken || hasLoadedRecentActivity) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setHasLoadedRecentActivity(true);
+    }, 600);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [accessToken, hasLoadedRecentActivity]);
+
   useUnauthorizedRedirect([
     meQuery.error,
     accountsQuery.error,
@@ -165,7 +167,6 @@ export function DashboardShell() {
     createTransactionMutation.error,
     createTransferMutation.error,
     createAccountMutation.error,
-    processCreditSettlementsMutation.error,
   ]);
 
   if (!accessToken) {
@@ -224,17 +225,18 @@ export function DashboardShell() {
                 >
                   Transfer
                 </button>
-                <button
-                  className={`text-sm ${ui.buttonBase} ${ui.buttonNeutral}`}
-                  disabled={processCreditSettlementsMutation.isPending}
-                  onClick={() => processCreditSettlementsMutation.mutate()}
-                  type="button"
-                >
-                  {processCreditSettlementsMutation.isPending ? "Processing settlements..." : "Process due settlements"}
-                </button>
                 <Link className={`text-sm ${ui.buttonBase} ${ui.buttonNeutral}`} href="/settings#budgets">
                   Budgets
                 </Link>
+              </div>
+            </div>
+
+            <div className={`mt-4 sm:mt-5 ${ui.tile} border-[var(--accent-gold-border)] bg-[linear-gradient(165deg,rgba(16,24,22,0.9),rgba(15,21,20,0.9))]`}>
+              <p className={`text-sm ${ui.textMuted}`}>{displayCurrency}</p>
+              <p className={`mt-1 text-2xl font-semibold tracking-tight sm:text-4xl ${ui.textPrimary}`}>
+                {displayCurrency} {formatRate(displayCurrency === "USD" ? portfolioTotals.usd : portfolioTotals.ars)}
+              </p>
+              <div className="mt-3 flex justify-start sm:justify-end">
                 <select
                   className={ui.select}
                   onChange={(event) => setDisplayCurrency(event.target.value as "USD" | "ARS")}
@@ -244,23 +246,6 @@ export function DashboardShell() {
                   <option value="ARS">ARS</option>
                 </select>
               </div>
-            </div>
-
-            <div className={`mt-4 sm:mt-5 ${ui.tile} border-[var(--accent-gold-border)] bg-[linear-gradient(165deg,rgba(16,24,22,0.9),rgba(15,21,20,0.9))]`}>
-              <p className={`text-sm ${ui.textMuted}`}>{displayCurrency}</p>
-              <p className={`mt-1 text-2xl font-semibold tracking-tight sm:text-4xl ${ui.textPrimary}`}>
-                {displayCurrency} {formatRate(displayCurrency === "USD" ? portfolioTotals.usd : portfolioTotals.ars)}
-              </p>
-              {processCreditSettlementsMutation.error ? (
-                <p className={`mt-2 text-xs ${ui.textExpense}`}>
-                  Settlement processing failed: {(processCreditSettlementsMutation.error as Error).message}
-                </p>
-              ) : null}
-              {processCreditSettlementsMutation.data ? (
-                <p className={`mt-2 text-xs ${ui.textMuted}`}>
-                  Settlements processed: {processCreditSettlementsMutation.data.processedCount}, skipped: {processCreditSettlementsMutation.data.skippedCount}.
-                </p>
-              ) : null}
             </div>
           </section>
 
@@ -325,26 +310,14 @@ export function DashboardShell() {
               <section className={`${ui.panel} fade-up-enter-delay-1`}>
                 <div className="flex items-center justify-between gap-3">
                   <h2 className={`text-xl font-semibold ${ui.textPrimary}`}>Recent activity</h2>
-                  <span className={ui.badgeInfo}>{hasLoadedRecentActivity ? (recentTransactionsQuery.data?.length ?? 0) : "-"}</span>
+                  <span className={ui.badgeInfo}>{recentTransactionsQuery.data?.length ?? 0}</span>
                 </div>
 
                 <div className="mt-4 grid gap-3">
-                  {!hasLoadedRecentActivity ? (
-                    <div className={`rounded-2xl border border-dashed border-[var(--border-dashed)] bg-[var(--surface-2)] p-4 sm:p-6 text-sm ${ui.textMuted}`}>
-                      <p>Load recent transactions on demand to keep dashboard startup fast.</p>
-                      <button
-                        className={`mt-3 inline-flex ${ui.buttonBase} ${ui.buttonNeutral}`}
-                        onClick={() => setHasLoadedRecentActivity(true)}
-                        type="button"
-                      >
-                        Load recent activity
-                      </button>
-                    </div>
-                  ) : null}
-                  {hasLoadedRecentActivity && recentTransactionsQuery.isLoading ? <LoadingCard label="Loading recent transactions..." /> : null}
-                  {hasLoadedRecentActivity && recentTransactionsQuery.isError ? <ErrorBanner message="Recent transactions could not be loaded." /> : null}
-                  {hasLoadedRecentActivity && recentTransactionsQuery.data?.length === 0 ? <EmptyTransactionsCard onCreateTransaction={() => setShowTransactionModal(true)} /> : null}
-                  {hasLoadedRecentActivity && recentTransactionsQuery.data?.slice(0, 8).map((transaction) => (
+                  {recentTransactionsQuery.isLoading ? <LoadingCard label="Loading recent transactions..." /> : null}
+                  {recentTransactionsQuery.isError ? <ErrorBanner message="Recent transactions could not be loaded." /> : null}
+                  {recentTransactionsQuery.data?.length === 0 ? <EmptyTransactionsCard onCreateTransaction={() => setShowTransactionModal(true)} /> : null}
+                  {recentTransactionsQuery.data?.slice(0, 8).map((transaction) => (
                     <article key={transaction.id} className="rounded-2xl border border-[var(--border-muted)] bg-[var(--surface-2)] p-3">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
