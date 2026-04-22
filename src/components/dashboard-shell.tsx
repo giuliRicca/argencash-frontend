@@ -7,8 +7,6 @@ import { requestJson, postJson } from "@/lib/api";
 import { buildAuthorizationHeader } from "@/lib/auth-token";
 import {
   Account,
-  AccountDetail,
-  AccountTransaction,
   AccountType,
   AuthenticatedUser,
   Budget,
@@ -17,12 +15,13 @@ import {
   Category,
   CreateTransactionRequest,
   CreateTransferRequest,
+  DashboardRecentTransaction,
 } from "@/lib/contracts";
 import { useStoredToken } from "@/lib/storage";
 import { useUnauthorizedRedirect } from "@/lib/hooks/use-unauthorized-redirect";
 import { ui } from "@/lib/ui";
 import { formatRate } from "@/components/formatters";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { CreateTransactionModal } from "@/components/create-transaction-modal";
 import { CreateTransferModal } from "@/components/create-transfer-modal";
 import { MissingSessionState } from "@/components/missing-session-state";
@@ -35,7 +34,7 @@ export function DashboardShell() {
   const [showTransactionModal, setShowTransactionModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
-  const hasProcessedCreditSettlementsRef = useRef(false);
+  const [hasLoadedRecentActivity, setHasLoadedRecentActivity] = useState(false);
 
   const queryClient = useQueryClient();
 
@@ -49,6 +48,8 @@ export function DashboardShell() {
       }),
     enabled: Boolean(accessToken),
     retry: false,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 
   const accountsQuery = useQuery({
@@ -60,6 +61,9 @@ export function DashboardShell() {
         },
       }),
     enabled: Boolean(accessToken),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    retry: 1,
   });
 
   const categoriesQuery = useQuery({
@@ -71,6 +75,9 @@ export function DashboardShell() {
         },
       }),
     enabled: Boolean(accessToken),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    retry: 1,
   });
 
   const budgetsQuery = useQuery({
@@ -82,35 +89,23 @@ export function DashboardShell() {
         },
       }),
     enabled: Boolean(accessToken),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    retry: 1,
   });
 
   const recentTransactionsQuery = useQuery({
-    queryKey: ["dashboard-recent-transactions", accessToken, (accountsQuery.data ?? []).map((account) => account.id).join(",")],
-    queryFn: async () => {
-      const accounts = accountsQuery.data ?? [];
-
-      const details = await Promise.all(
-        accounts.map((account) =>
-          requestJson<AccountDetail>(`/api/accounts/${account.id}`, {
-            headers: {
-              Authorization: buildAuthorizationHeader(accessToken),
-            },
-          }),
-        ),
-      );
-
-      return details
-        .flatMap((detail) =>
-          detail.transactions.map((transaction) => ({
-            ...transaction,
-            accountId: detail.id,
-            accountName: detail.name,
-          })),
-        )
-        .sort((a, b) => new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime())
-        .slice(0, 10);
-    },
-    enabled: Boolean(accessToken) && Boolean(accountsQuery.data?.length),
+    queryKey: ["dashboard-recent-transactions", accessToken],
+    queryFn: () =>
+      requestJson<DashboardRecentTransaction[]>("/api/transactions/recent?limit=10", {
+        headers: {
+          Authorization: buildAuthorizationHeader(accessToken),
+        },
+      }),
+    enabled: Boolean(accessToken) && hasLoadedRecentActivity,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+    retry: 1,
   });
 
   const createTransactionMutation = useMutation({
@@ -143,6 +138,7 @@ export function DashboardShell() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["accounts", accessToken] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-recent-transactions", accessToken] });
     },
   });
 
@@ -159,15 +155,6 @@ export function DashboardShell() {
       setShowCreateModal(false);
     },
   });
-
-  useEffect(() => {
-    if (!accessToken || hasProcessedCreditSettlementsRef.current) {
-      return;
-    }
-
-    hasProcessedCreditSettlementsRef.current = true;
-    processCreditSettlementsMutation.mutate();
-  }, [accessToken, processCreditSettlementsMutation]);
 
   useUnauthorizedRedirect([
     meQuery.error,
@@ -237,6 +224,14 @@ export function DashboardShell() {
                 >
                   Transfer
                 </button>
+                <button
+                  className={`text-sm ${ui.buttonBase} ${ui.buttonNeutral}`}
+                  disabled={processCreditSettlementsMutation.isPending}
+                  onClick={() => processCreditSettlementsMutation.mutate()}
+                  type="button"
+                >
+                  {processCreditSettlementsMutation.isPending ? "Processing settlements..." : "Process due settlements"}
+                </button>
                 <Link className={`text-sm ${ui.buttonBase} ${ui.buttonNeutral}`} href="/settings#budgets">
                   Budgets
                 </Link>
@@ -256,6 +251,16 @@ export function DashboardShell() {
               <p className={`mt-1 text-2xl font-semibold tracking-tight sm:text-4xl ${ui.textPrimary}`}>
                 {displayCurrency} {formatRate(displayCurrency === "USD" ? portfolioTotals.usd : portfolioTotals.ars)}
               </p>
+              {processCreditSettlementsMutation.error ? (
+                <p className={`mt-2 text-xs ${ui.textExpense}`}>
+                  Settlement processing failed: {(processCreditSettlementsMutation.error as Error).message}
+                </p>
+              ) : null}
+              {processCreditSettlementsMutation.data ? (
+                <p className={`mt-2 text-xs ${ui.textMuted}`}>
+                  Settlements processed: {processCreditSettlementsMutation.data.processedCount}, skipped: {processCreditSettlementsMutation.data.skippedCount}.
+                </p>
+              ) : null}
             </div>
           </section>
 
@@ -320,14 +325,26 @@ export function DashboardShell() {
               <section className={`${ui.panel} fade-up-enter-delay-1`}>
                 <div className="flex items-center justify-between gap-3">
                   <h2 className={`text-xl font-semibold ${ui.textPrimary}`}>Recent activity</h2>
-                  <span className={ui.badgeInfo}>{recentTransactionsQuery.data?.length ?? 0}</span>
+                  <span className={ui.badgeInfo}>{hasLoadedRecentActivity ? (recentTransactionsQuery.data?.length ?? 0) : "-"}</span>
                 </div>
 
                 <div className="mt-4 grid gap-3">
-                  {recentTransactionsQuery.isLoading ? <LoadingCard label="Loading recent transactions..." /> : null}
-                  {recentTransactionsQuery.isError ? <ErrorBanner message="Recent transactions could not be loaded." /> : null}
-                  {recentTransactionsQuery.data?.length === 0 ? <EmptyTransactionsCard onCreateTransaction={() => setShowTransactionModal(true)} /> : null}
-                  {recentTransactionsQuery.data?.slice(0, 8).map((transaction) => (
+                  {!hasLoadedRecentActivity ? (
+                    <div className={`rounded-2xl border border-dashed border-[var(--border-dashed)] bg-[var(--surface-2)] p-4 sm:p-6 text-sm ${ui.textMuted}`}>
+                      <p>Load recent transactions on demand to keep dashboard startup fast.</p>
+                      <button
+                        className={`mt-3 inline-flex ${ui.buttonBase} ${ui.buttonNeutral}`}
+                        onClick={() => setHasLoadedRecentActivity(true)}
+                        type="button"
+                      >
+                        Load recent activity
+                      </button>
+                    </div>
+                  ) : null}
+                  {hasLoadedRecentActivity && recentTransactionsQuery.isLoading ? <LoadingCard label="Loading recent transactions..." /> : null}
+                  {hasLoadedRecentActivity && recentTransactionsQuery.isError ? <ErrorBanner message="Recent transactions could not be loaded." /> : null}
+                  {hasLoadedRecentActivity && recentTransactionsQuery.data?.length === 0 ? <EmptyTransactionsCard onCreateTransaction={() => setShowTransactionModal(true)} /> : null}
+                  {hasLoadedRecentActivity && recentTransactionsQuery.data?.slice(0, 8).map((transaction) => (
                     <article key={transaction.id} className="rounded-2xl border border-[var(--border-muted)] bg-[var(--surface-2)] p-3">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
@@ -418,11 +435,6 @@ function buildPortfolioTotals(accounts: Account[]) {
     { usd: 0, ars: 0 },
   );
 }
-
-type DashboardRecentTransaction = AccountTransaction & {
-  accountId: string;
-  accountName: string;
-};
 
 type QuickStats = {
   incomeUsd: number;

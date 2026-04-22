@@ -61,6 +61,11 @@ export type AccountDetail = {
   transactions: AccountTransaction[];
 };
 
+export type DashboardRecentTransaction = AccountTransaction & {
+  accountId: string;
+  accountName: string;
+};
+
 export type LiveExchangeRate = {
   baseCurrency: string;
   targetCurrency: string;
