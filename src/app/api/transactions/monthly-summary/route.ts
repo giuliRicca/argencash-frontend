@@ -19,9 +19,20 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const page = request.nextUrl.searchParams.get("page") ?? "1";
-  const pageSize = request.nextUrl.searchParams.get("pageSize") ?? "10";
-  const targetUrl = buildBackendUrl(`/api/transactions/recent?page=${encodeURIComponent(page)}&pageSize=${encodeURIComponent(pageSize)}`);
+  const month = request.nextUrl.searchParams.get("month");
+  const year = request.nextUrl.searchParams.get("year");
+  const searchParams = new URLSearchParams();
+
+  if (month) {
+    searchParams.set("month", month);
+  }
+
+  if (year) {
+    searchParams.set("year", year);
+  }
+
+  const query = searchParams.toString();
+  const targetUrl = buildBackendUrl(`/api/transactions/monthly-summary${query ? `?${query}` : ""}`);
 
   try {
     const response = await fetch(targetUrl, {

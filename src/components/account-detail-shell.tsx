@@ -172,8 +172,8 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
       <div className={ui.shellNarrow}>
         <div className="fade-up-enter flex items-center justify-between gap-4">
           <div>
-            <Link className={ui.linkMuted} href="/dashboard">
-              ← Dashboard
+            <Link className={ui.linkMuted} href="/accounts">
+              ← Accounts
             </Link>
             <h1 className={`mt-3 text-3xl font-semibold tracking-tight ${ui.textPrimary}`}>{accountQuery.data?.name ?? "Account"}</h1>
             {accountQuery.data ? (
