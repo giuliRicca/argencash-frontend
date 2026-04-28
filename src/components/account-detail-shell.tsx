@@ -48,12 +48,13 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
   const accountQuery = useQuery({
     queryKey: ["account-detail", accountId, accessToken],
     queryFn: () =>
-      requestJson<AccountDetail>(`/api/accounts/${accountId}`, {
+      requestJson<AccountDetail>(`/api/accounts/${accountId}?transactionLimit=50`, {
         headers: {
           Authorization: buildAuthorizationHeader(accessToken),
         },
       }),
     enabled: Boolean(accessToken),
+    staleTime: 60_000,
   });
 
   const categoriesQuery = useQuery({
@@ -65,6 +66,8 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
         },
       }),
     enabled: Boolean(accessToken),
+    staleTime: 10 * 60_000,
+    refetchOnWindowFocus: false,
   });
 
   const accountsQuery = useQuery({
@@ -76,6 +79,7 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
         },
       }),
     enabled: Boolean(accessToken),
+    staleTime: 60_000,
   });
 
   const createTransactionMutation = useMutation({
