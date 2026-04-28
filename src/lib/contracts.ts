@@ -66,6 +66,20 @@ export type DashboardRecentTransaction = AccountTransaction & {
   accountName: string;
 };
 
+export type PagedResult<T> = {
+  items: T[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages: number;
+};
+
+export type MonthlyTransactionSummary = {
+  incomeUsd: number;
+  expenseUsd: number;
+  netUsd: number;
+};
+
 export type LiveExchangeRate = {
   baseCurrency: string;
   targetCurrency: string;

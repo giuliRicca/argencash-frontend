@@ -15,6 +15,8 @@ import {
   CreateTransactionRequest,
   CreateTransferRequest,
   DashboardRecentTransaction,
+  MonthlyTransactionSummary,
+  PagedResult,
 } from "@/lib/contracts";
 import { useStoredToken } from "@/lib/storage";
 import { useUnauthorizedRedirect } from "@/lib/hooks/use-unauthorized-redirect";
@@ -26,6 +28,8 @@ import { CreateTransferModal } from "@/components/create-transfer-modal";
 import { MissingSessionState } from "@/components/missing-session-state";
 import { DashboardSidebar } from "@/components/dashboard-sidebar";
 
+const RECENT_ACTIVITY_PAGE_SIZE = 10;
+
 export function DashboardShell() {
   const accessToken = useStoredToken();
   const [displayCurrency, setDisplayCurrency] = useState<"USD" | "ARS">("USD");
@@ -34,6 +38,7 @@ export function DashboardShell() {
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [hasLoadedRecentActivity, setHasLoadedRecentActivity] = useState(false);
+  const [recentActivityPage, setRecentActivityPage] = useState(1);
 
   const queryClient = useQueryClient();
 
@@ -94,14 +99,28 @@ export function DashboardShell() {
   });
 
   const recentTransactionsQuery = useQuery({
-    queryKey: ["dashboard-recent-transactions", accessToken],
+    queryKey: ["dashboard-recent-transactions", accessToken, recentActivityPage],
     queryFn: () =>
-      requestJson<DashboardRecentTransaction[]>("/api/transactions/recent?limit=10", {
+      requestJson<PagedResult<DashboardRecentTransaction>>(`/api/transactions/recent?page=${recentActivityPage}&pageSize=${RECENT_ACTIVITY_PAGE_SIZE}`, {
         headers: {
           Authorization: buildAuthorizationHeader(accessToken),
         },
       }),
     enabled: Boolean(accessToken) && hasLoadedRecentActivity,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+    retry: 1,
+  });
+
+  const monthlySummaryQuery = useQuery({
+    queryKey: ["dashboard-monthly-summary", accessToken],
+    queryFn: () =>
+      requestJson<MonthlyTransactionSummary>("/api/transactions/monthly-summary", {
+        headers: {
+          Authorization: buildAuthorizationHeader(accessToken),
+        },
+      }),
+    enabled: Boolean(accessToken),
     staleTime: 30_000,
     refetchOnWindowFocus: false,
     retry: 1,
@@ -113,8 +132,11 @@ export function DashboardShell() {
         headers: { Authorization: buildAuthorizationHeader(accessToken) },
       }),
     onSuccess: () => {
+      setRecentActivityPage(1);
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
       queryClient.invalidateQueries({ queryKey: ["budgets", accessToken] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-recent-transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-monthly-summary", accessToken] });
       setShowTransactionModal(false);
     },
   });
@@ -125,13 +147,15 @@ export function DashboardShell() {
         headers: { Authorization: buildAuthorizationHeader(accessToken) },
       }),
     onSuccess: () => {
+      setRecentActivityPage(1);
       queryClient.invalidateQueries({ queryKey: ["accounts", accessToken] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-recent-transactions"] });
       setShowTransferModal(false);
     },
   });
 
   const portfolioTotals = buildPortfolioTotals(accountsQuery.data ?? []);
-  const quickStats = buildQuickStats(recentTransactionsQuery.data ?? [], accountsQuery.data ?? []);
+  const quickStats = buildQuickStats(monthlySummaryQuery.data, accountsQuery.data ?? []);
 
   const createAccountMutation = useMutation({
     mutationFn: (data: CreateAccountRequest) =>
@@ -164,6 +188,7 @@ export function DashboardShell() {
     categoriesQuery.error,
     budgetsQuery.error,
     recentTransactionsQuery.error,
+    monthlySummaryQuery.error,
     createTransactionMutation.error,
     createTransferMutation.error,
     createAccountMutation.error,
@@ -310,14 +335,14 @@ export function DashboardShell() {
               <section className={`${ui.panel} fade-up-enter-delay-1`}>
                 <div className="flex items-center justify-between gap-3">
                   <h2 className={`text-xl font-semibold ${ui.textPrimary}`}>Recent activity</h2>
-                  <span className={ui.badgeInfo}>{recentTransactionsQuery.data?.length ?? 0}</span>
+                  <span className={ui.badgeInfo}>{recentTransactionsQuery.data?.totalCount ?? 0}</span>
                 </div>
 
                 <div className="mt-4 grid gap-3">
                   {recentTransactionsQuery.isLoading ? <LoadingCard label="Loading recent transactions..." /> : null}
                   {recentTransactionsQuery.isError ? <ErrorBanner message="Recent transactions could not be loaded." /> : null}
-                  {recentTransactionsQuery.data?.length === 0 ? <EmptyTransactionsCard onCreateTransaction={() => setShowTransactionModal(true)} /> : null}
-                  {recentTransactionsQuery.data?.slice(0, 8).map((transaction) => (
+                  {recentTransactionsQuery.data?.items.length === 0 ? <EmptyTransactionsCard onCreateTransaction={() => setShowTransactionModal(true)} /> : null}
+                  {recentTransactionsQuery.data?.items.map((transaction) => (
                     <article key={transaction.id} className="rounded-2xl border border-[var(--border-muted)] bg-[var(--surface-2)] p-3">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
@@ -345,6 +370,31 @@ export function DashboardShell() {
                     </article>
                   ))}
                 </div>
+                {recentTransactionsQuery.data && recentTransactionsQuery.data.totalPages > 1 ? (
+                  <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <p className={`text-sm ${ui.textMuted}`}>
+                      Page {recentTransactionsQuery.data.page} of {recentTransactionsQuery.data.totalPages}
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <button
+                        className={`text-sm ${ui.buttonBase} ${ui.buttonNeutral}`}
+                        disabled={recentActivityPage <= 1 || recentTransactionsQuery.isFetching}
+                        onClick={() => setRecentActivityPage((page) => Math.max(1, page - 1))}
+                        type="button"
+                      >
+                        Previous
+                      </button>
+                      <button
+                        className={`text-sm ${ui.buttonBase} ${ui.buttonNeutral}`}
+                        disabled={recentActivityPage >= recentTransactionsQuery.data.totalPages || recentTransactionsQuery.isFetching}
+                        onClick={() => setRecentActivityPage((page) => page + 1)}
+                        type="button"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
               </section>
 
               <section className={`${ui.panel} fade-up-enter-delay-2`}>
@@ -417,22 +467,11 @@ type QuickStats = {
   creditDueLabel: string;
 };
 
-function buildQuickStats(transactions: DashboardRecentTransaction[], accounts: Account[]): QuickStats {
+function buildQuickStats(monthlySummary: MonthlyTransactionSummary | undefined, accounts: Account[]): QuickStats {
   const now = new Date();
-  const month = now.getMonth();
-  const year = now.getFullYear();
-
-  const monthly = transactions.filter((transaction) => {
-    const date = new Date(transaction.transactionDate);
-    return date.getMonth() === month && date.getFullYear() === year;
-  });
-
-  const incomeUsd = monthly
-    .filter((transaction) => transaction.transactionType === "INCOME")
-    .reduce((sum, transaction) => sum + transaction.convertedAmountUsd, 0);
-  const expenseUsd = monthly
-    .filter((transaction) => transaction.transactionType === "EXPENSE")
-    .reduce((sum, transaction) => sum + Math.abs(transaction.convertedAmountUsd), 0);
+  const incomeUsd = monthlySummary?.incomeUsd ?? 0;
+  const expenseUsd = monthlySummary?.expenseUsd ?? 0;
+  const netUsd = monthlySummary?.netUsd ?? incomeUsd - expenseUsd;
 
   const creditAccounts = accounts.filter((account) => account.accountType === "CREDIT" && account.paymentDayOfMonth);
   let creditDueLabel = "No credit cards";
@@ -454,7 +493,7 @@ function buildQuickStats(transactions: DashboardRecentTransaction[], accounts: A
   return {
     incomeUsd,
     expenseUsd,
-    netUsd: incomeUsd - expenseUsd,
+    netUsd,
     hasCreditDueSoon,
     creditDueLabel,
   };
