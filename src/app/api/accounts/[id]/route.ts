@@ -27,18 +27,34 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
   const { id } = await context.params;
   const targetUrl = buildBackendUrl(`/api/accounts/${id}`);
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
 
   try {
     const response = await fetch(targetUrl, {
       headers: {
         Authorization: buildAuthorizationHeader(normalizedToken),
       },
+      signal: controller.signal,
       cache: "no-store",
     });
 
     return forwardJson(response);
   } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      return NextResponse.json(
+        {
+          title: "Backend timeout.",
+          detail: "Account detail request timed out while waiting for backend response.",
+          status: 504,
+        },
+        { status: 504 },
+      );
+    }
+
     return proxyFailureResponse(targetUrl, error);
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
