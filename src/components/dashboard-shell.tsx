@@ -7,10 +7,8 @@ import { requestJson, postJson } from "@/lib/api";
 import { buildAuthorizationHeader } from "@/lib/auth-token";
 import {
   Account,
-  AccountType,
   AuthenticatedUser,
   Budget,
-  CreateAccountRequest,
   Category,
   CreateTransactionRequest,
   CreateTransferRequest,
@@ -22,7 +20,7 @@ import { useStoredToken } from "@/lib/storage";
 import { useUnauthorizedRedirect } from "@/lib/hooks/use-unauthorized-redirect";
 import { ui } from "@/lib/ui";
 import { formatRate } from "@/components/formatters";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useState } from "react";
 import { CreateTransactionModal } from "@/components/create-transaction-modal";
 import { CreateTransferModal } from "@/components/create-transfer-modal";
 import { MissingSessionState } from "@/components/missing-session-state";
@@ -33,7 +31,6 @@ const RECENT_ACTIVITY_PAGE_SIZE = 10;
 export function DashboardShell() {
   const accessToken = useStoredToken();
   const [displayCurrency, setDisplayCurrency] = useState<"USD" | "ARS">("USD");
-  const [showCreateModal, setShowCreateModal] = useState(false);
   const [showTransactionModal, setShowTransactionModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
@@ -155,18 +152,7 @@ export function DashboardShell() {
   });
 
   const portfolioTotals = buildPortfolioTotals(accountsQuery.data ?? []);
-  const quickStats = buildQuickStats(monthlySummaryQuery.data, accountsQuery.data ?? []);
-
-  const createAccountMutation = useMutation({
-    mutationFn: (data: CreateAccountRequest) =>
-      postJson<{ id: string }>("/api/accounts", data, {
-        headers: { Authorization: buildAuthorizationHeader(accessToken) },
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["accounts"] });
-      setShowCreateModal(false);
-    },
-  });
+  const quickStats = buildQuickStats(monthlySummaryQuery.data);
 
   useEffect(() => {
     if (!accessToken || hasLoadedRecentActivity) {
@@ -191,7 +177,6 @@ export function DashboardShell() {
     monthlySummaryQuery.error,
     createTransactionMutation.error,
     createTransferMutation.error,
-    createAccountMutation.error,
   ]);
 
   if (!accessToken) {
@@ -210,7 +195,7 @@ export function DashboardShell() {
                 <p className={`text-lg font-semibold sm:text-2xl ${ui.textPrimary}`}>
                   {meQuery.data?.fullName ?? "Loading..."}
                 </p>
-                <p className={`mt-1 text-sm ${ui.textMuted}`}>Overview of your accounts, activity, and budgets.</p>
+                <p className={`mt-1 text-sm ${ui.textMuted}`}>Overview of your portfolio, activity, and budgets.</p>
               </div>
 
               <button
@@ -253,6 +238,9 @@ export function DashboardShell() {
                 <Link className={`text-sm ${ui.buttonBase} ${ui.buttonNeutral}`} href="/settings#budgets">
                   Budgets
                 </Link>
+                <Link className={`text-sm ${ui.buttonBase} ${ui.buttonNeutral}`} href="/accounts">
+                  View accounts
+                </Link>
               </div>
             </div>
 
@@ -274,64 +262,15 @@ export function DashboardShell() {
             </div>
           </section>
 
-          <section className="fade-up-enter-delay-1 grid gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {accountsQuery.isError ? <ErrorBanner message="Accounts could not be loaded." /> : null}
+
+          <section className="fade-up-enter-delay-1 grid gap-3 sm:gap-4 md:grid-cols-3">
             <QuickStatCard label="Income (month)" value={`USD ${formatRate(quickStats.incomeUsd)}`} tone="income" />
             <QuickStatCard label="Expenses (month)" value={`USD ${formatRate(quickStats.expenseUsd)}`} tone="expense" />
             <QuickStatCard label="Net change" value={`USD ${formatRate(quickStats.netUsd)}`} tone={quickStats.netUsd >= 0 ? "income" : "expense"} />
-            <QuickStatCard label="Credit due soon" value={quickStats.creditDueLabel} tone={quickStats.hasCreditDueSoon ? "warning" : "neutral"} />
           </section>
 
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
-            <section className={`${ui.panel} fade-up-enter-delay-1`}>
-              <div className="flex items-center justify-between gap-3">
-                <h2 className={`text-xl sm:text-2xl font-semibold ${ui.textPrimary}`}>Accounts</h2>
-                <button
-                  className={`text-sm ${ui.buttonBase} ${ui.buttonGold}`}
-                  onClick={() => setShowCreateModal(true)}
-                  type="button"
-                >
-                  + Add
-                </button>
-              </div>
-
-              <div className="mt-4 grid gap-3 sm:gap-4 sm:grid-cols-2">
-                {accountsQuery.isLoading ? <LoadingCard label="Loading accounts..." /> : null}
-                {accountsQuery.isError ? <ErrorBanner message="Accounts could not be loaded." /> : null}
-                {accountsQuery.data?.length === 0 ? <EmptyCard onCreateAccount={() => setShowCreateModal(true)} /> : null}
-                {accountsQuery.data?.map((account) => (
-                  <Link key={account.id} href={`/accounts/${account.id}`}>
-                    <article className="rounded-2xl border border-[var(--border-muted)] bg-[linear-gradient(165deg,rgba(19,27,25,0.94),rgba(16,23,21,0.94))] p-4 transition duration-200 hover:-translate-y-0.5 hover:border-[var(--border-strong)] focus-within:border-[var(--border-strong)]">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                          <p className={`text-base font-semibold truncate ${ui.textPrimary}`}>{account.name}</p>
-                          <div className="mt-2 flex flex-wrap items-center gap-2">
-                            <span className={`inline-block px-2 py-0.5 text-[10px] tracking-[0.06em] ${ui.badgeGold}`}>
-                              {account.exchangeRateType}
-                            </span>
-                            <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] tracking-[0.06em] ${account.accountType === "CREDIT" ? "border-[var(--state-info-border)] bg-[var(--state-info-soft)] text-[var(--state-info)]" : "border-[var(--border-muted)] bg-[var(--surface-3)] text-[var(--text-muted)]"}`}>
-                              <span>{getAccountTypeIcon(account.accountType)}</span>
-                              {formatAccountTypeLabel(account.accountType)}
-                            </span>
-                          </div>
-                          {account.accountType === "CREDIT" ? (
-                            <p className={`mt-2 text-xs ${ui.textMuted}`}>
-                              Pays day {account.paymentDayOfMonth ?? "-"} from {resolveFundingAccountName(accountsQuery.data ?? [], account.fundingAccountId)}
-                            </p>
-                          ) : null}
-                          <div className={`mt-2 space-y-1 text-sm ${ui.textMuted}`}>
-                            <p>USD {formatRate(account.balanceUsd)}</p>
-                            <p>ARS {formatRate(account.balanceArs)}</p>
-                          </div>
-                        </div>
-                        <span className={ui.badgeSuccess}>{account.currencyCode}</span>
-                      </div>
-                    </article>
-                  </Link>
-                ))}
-              </div>
-            </section>
-
-            <div className="grid gap-4 auto-rows-min">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)]">
               <section className={`${ui.panel} fade-up-enter-delay-1`}>
                 <div className="flex items-center justify-between gap-3">
                   <h2 className={`text-xl font-semibold ${ui.textPrimary}`}>Recent activity</h2>
@@ -412,18 +351,8 @@ export function DashboardShell() {
                   {budgetsQuery.data?.length ? <BudgetOverview budgets={budgetsQuery.data} /> : null}
                 </div>
               </section>
-            </div>
           </div>
         </div>
-      {showCreateModal ? (
-        <CreateAccountModal
-          accounts={accountsQuery.data ?? []}
-          error={createAccountMutation.isError ? (createAccountMutation.error as Error).message : null}
-          isLoading={createAccountMutation.isPending}
-          onClose={() => setShowCreateModal(false)}
-          onSubmit={(data) => createAccountMutation.mutate(data)}
-        />
-      ) : null}
       {showTransactionModal && accountsQuery.data ? (
         <CreateTransactionModal
           accounts={accountsQuery.data}
@@ -463,39 +392,17 @@ type QuickStats = {
   incomeUsd: number;
   expenseUsd: number;
   netUsd: number;
-  hasCreditDueSoon: boolean;
-  creditDueLabel: string;
 };
 
-function buildQuickStats(monthlySummary: MonthlyTransactionSummary | undefined, accounts: Account[]): QuickStats {
-  const now = new Date();
+function buildQuickStats(monthlySummary: MonthlyTransactionSummary | undefined): QuickStats {
   const incomeUsd = monthlySummary?.incomeUsd ?? 0;
   const expenseUsd = monthlySummary?.expenseUsd ?? 0;
   const netUsd = monthlySummary?.netUsd ?? incomeUsd - expenseUsd;
-
-  const creditAccounts = accounts.filter((account) => account.accountType === "CREDIT" && account.paymentDayOfMonth);
-  let creditDueLabel = "No credit cards";
-  let hasCreditDueSoon = false;
-
-  if (creditAccounts.length > 0) {
-    const nowDay = now.getDate();
-    const dueInDays = creditAccounts
-      .map((account) => {
-        const dueDay = account.paymentDayOfMonth ?? nowDay;
-        return dueDay >= nowDay ? dueDay - nowDay : 31 - nowDay + dueDay;
-      })
-      .sort((a, b) => a - b)[0];
-
-    hasCreditDueSoon = dueInDays <= 7;
-    creditDueLabel = dueInDays === 0 ? "Due today" : `In ${dueInDays} day${dueInDays === 1 ? "" : "s"}`;
-  }
 
   return {
     incomeUsd,
     expenseUsd,
     netUsd,
-    hasCreditDueSoon,
-    creditDueLabel,
   };
 }
 
@@ -609,14 +516,6 @@ function BudgetOverview({ budgets }: { budgets: Budget[] }) {
   );
 }
 
-function formatAccountTypeLabel(accountType: AccountType) {
-  return accountType === "CREDIT" ? "Credit" : "Standard";
-}
-
-function getAccountTypeIcon(accountType: AccountType) {
-  return accountType === "CREDIT" ? "[CC]" : "[BK]";
-}
-
 function getCategoryIcon(categoryName: string) {
   const value = categoryName.toLowerCase();
 
@@ -660,36 +559,8 @@ function formatDateTime(value: string) {
   });
 }
 
-function resolveFundingAccountName(accounts: Account[], fundingAccountId: string | null) {
-  if (!fundingAccountId) {
-    return "-";
-  }
-
-  return accounts.find((account) => account.id === fundingAccountId)?.name ?? "Unknown account";
-}
-
-function resolveFundingAccountDraftId(accounts: Account[], draftFundingAccountId: string) {
-  if (accounts.length === 0) {
-    return "";
-  }
-
-  return accounts.some((account) => account.id === draftFundingAccountId)
-    ? draftFundingAccountId
-    : accounts[0].id;
-}
-
 function LoadingCard({ label }: { label: string }) {
   return <div className={`rounded-2xl border border-[var(--border-muted)] bg-[var(--surface-2)] p-4 text-sm ${ui.textMuted}`}>{label}</div>;
-}
-
-function EmptyCard({ onCreateAccount }: { onCreateAccount: () => void }) {
-  return (
-    <div className={`rounded-2xl border border-dashed border-[var(--border-dashed)] bg-[var(--surface-2)] p-5 text-sm ${ui.textMuted}`}>
-      <p className="inline-flex items-center gap-2 text-sm">[AC] No accounts yet.</p>
-      <p className="mt-2">Create your first account to start tracking balances and transactions.</p>
-      <button className={`mt-3 text-sm ${ui.buttonBase} ${ui.buttonGold}`} onClick={onCreateAccount} type="button">Create account</button>
-    </div>
-  );
 }
 
 function EmptyTransactionsCard({ onCreateTransaction }: { onCreateTransaction: () => void }) {
@@ -704,168 +575,4 @@ function EmptyTransactionsCard({ onCreateTransaction }: { onCreateTransaction: (
 
 function ErrorBanner({ message }: { message: string }) {
   return <div className={ui.errorBanner}>{message}</div>;
-}
-
-function CreateAccountModal({
-  accounts,
-  onClose,
-  onSubmit,
-  isLoading,
-  error,
-}: {
-  accounts: Account[];
-  onClose: () => void;
-  onSubmit: (data: CreateAccountRequest) => void;
-  isLoading: boolean;
-  error: string | null;
-}) {
-  const titleId = useId();
-  const [name, setName] = useState("");
-  const [currencyCode, setCurrencyCode] = useState("USD");
-  const [accountType, setAccountType] = useState<AccountType>("STANDARD");
-  const eligibleFundingAccounts = accounts.filter((account) => account.accountType === "STANDARD");
-  const [fundingAccountId, setFundingAccountId] = useState(eligibleFundingAccounts[0]?.id ?? "");
-  const [paymentDayOfMonth, setPaymentDayOfMonth] = useState("1");
-  const parsedPaymentDayOfMonth = Number(paymentDayOfMonth);
-  const isCreditAccount = accountType === "CREDIT";
-  const resolvedFundingAccountId = resolveFundingAccountDraftId(eligibleFundingAccounts, fundingAccountId);
-  const hasValidCreditSettings =
-    !isCreditAccount ||
-    (Boolean(resolvedFundingAccountId) &&
-      Number.isInteger(parsedPaymentDayOfMonth) &&
-      parsedPaymentDayOfMonth >= 1 &&
-      parsedPaymentDayOfMonth <= 28);
-  const canSubmit = name.trim().length > 0 && hasValidCreditSettings;
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onClose();
-      }
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => {
-      window.removeEventListener("keydown", onKeyDown);
-    };
-  }, [onClose]);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-
-    const payload: CreateAccountRequest = {
-      name,
-      currencyCode,
-      accountType,
-    };
-
-    if (isCreditAccount) {
-      payload.fundingAccountId = resolvedFundingAccountId;
-      payload.paymentDayOfMonth = parsedPaymentDayOfMonth;
-    }
-
-    onSubmit(payload);
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
-      <div
-        aria-labelledby={titleId}
-        aria-modal="true"
-        className="w-full max-w-md rounded-[var(--radius-panel)] border border-[var(--border-soft)] bg-[var(--surface-1)] p-8 shadow-[var(--shadow-hero)]"
-        onClick={(event) => event.stopPropagation()}
-        role="dialog"
-      >
-        <h2 className={`text-2xl font-semibold ${ui.textPrimary}`} id={titleId}>Create Account</h2>
-        <form className="mt-6 grid gap-4" onSubmit={handleSubmit}>
-          <div>
-            <label className={`block text-sm ${ui.textMuted}`}>Account Name</label>
-            <input
-              className={`mt-1 w-full ${ui.input}`}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="My Savings"
-              required
-              type="text"
-              value={name}
-            />
-          </div>
-          <div>
-            <label className={`block text-sm ${ui.textMuted}`}>Currency</label>
-            <select
-              className={`mt-1 w-full ${ui.input}`}
-              onChange={(e) => setCurrencyCode(e.target.value)}
-              value={currencyCode}
-            >
-              <option value="USD">USD - US Dollar</option>
-              <option value="ARS">ARS - Argentine Peso</option>
-            </select>
-          </div>
-          <div>
-            <label className={`block text-sm ${ui.textMuted}`}>Account Type</label>
-            <select
-              className={`mt-1 w-full ${ui.input}`}
-              onChange={(event) => setAccountType(event.target.value as AccountType)}
-              value={accountType}
-            >
-              <option value="STANDARD">Standard</option>
-              <option value="CREDIT">Credit card</option>
-            </select>
-          </div>
-          {isCreditAccount ? (
-            <>
-              <div>
-                <label className={`block text-sm ${ui.textMuted}`}>Funding Account</label>
-                <select
-                  className={`mt-1 w-full ${ui.input}`}
-                  onChange={(event) => setFundingAccountId(event.target.value)}
-                  required
-                  value={resolvedFundingAccountId}
-                >
-                  {eligibleFundingAccounts.length === 0 ? <option value="">No eligible standard accounts</option> : null}
-                  {eligibleFundingAccounts.map((account) => (
-                    <option key={account.id} value={account.id}>
-                      {account.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className={`block text-sm ${ui.textMuted}`}>Payment Day of Month</label>
-                <input
-                  className={`mt-1 w-full ${ui.input}`}
-                  max={28}
-                  min={1}
-                  onChange={(event) => setPaymentDayOfMonth(event.target.value)}
-                  required
-                  type="number"
-                  value={paymentDayOfMonth}
-                />
-                <p className={`mt-1 text-xs ${ui.textMuted}`}>Valid range: 1 to 28.</p>
-              </div>
-            </>
-          ) : null}
-          {isCreditAccount && eligibleFundingAccounts.length === 0 ? (
-            <p className="text-sm text-[var(--state-danger)]">Create a standard account first to fund credit payments.</p>
-          ) : null}
-          {error ? <p className="text-sm text-[var(--state-danger)]">{error}</p> : null}
-          <div className="mt-2 flex gap-3">
-            <button
-              className={`flex-1 ${ui.buttonBase} ${ui.buttonNeutral}`}
-              onClick={onClose}
-              type="button"
-            >
-              Cancel
-            </button>
-            <button
-              className={`flex-1 ${ui.buttonBase} ${ui.buttonSolidGold}`}
-              disabled={isLoading || !canSubmit}
-              type="submit"
-            >
-              {isLoading ? "Creating..." : "Create"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
 }
