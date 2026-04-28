@@ -73,8 +73,8 @@ export function DashboardShell() {
           Authorization: buildAuthorizationHeader(accessToken),
         },
       }),
-    enabled: Boolean(accessToken),
-    staleTime: 60_000,
+    enabled: Boolean(accessToken) && showTransactionModal,
+    staleTime: 10 * 60_000,
     refetchOnWindowFocus: false,
     retry: 1,
   });
@@ -87,7 +87,7 @@ export function DashboardShell() {
           Authorization: buildAuthorizationHeader(accessToken),
         },
       }),
-    enabled: Boolean(accessToken),
+    enabled: Boolean(accessToken) && accountsQuery.isSuccess,
     staleTime: 60_000,
     refetchOnWindowFocus: false,
     retry: 1,
@@ -374,10 +374,10 @@ export function DashboardShell() {
           onSubmit={(data) => createAccountMutation.mutate(data)}
         />
       ) : null}
-      {showTransactionModal && categoriesQuery.data && accountsQuery.data ? (
+      {showTransactionModal && accountsQuery.data ? (
         <CreateTransactionModal
           accounts={accountsQuery.data}
-          categories={categoriesQuery.data}
+          categories={categoriesQuery.data ?? []}
           error={createTransactionMutation.error ? (createTransactionMutation.error as Error).message : null}
           isLoading={createTransactionMutation.isPending}
           onClose={() => setShowTransactionModal(false)}

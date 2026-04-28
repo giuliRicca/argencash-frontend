@@ -26,7 +26,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
   }
 
   const { id } = await context.params;
-  const targetUrl = buildBackendUrl(`/api/accounts/${id}`);
+  const transactionLimit = request.nextUrl.searchParams.get("transactionLimit") ?? "50";
+  const targetUrl = buildBackendUrl(`/api/accounts/${id}?transactionLimit=${encodeURIComponent(transactionLimit)}`);
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 15000);
 
