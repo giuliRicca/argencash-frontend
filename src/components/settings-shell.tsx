@@ -18,6 +18,7 @@ import { useStoredToken } from "@/lib/storage";
 import { ui } from "@/lib/ui";
 import { CategoriesManager } from "@/components/settings/categories-manager";
 import { MissingSessionState } from "@/components/missing-session-state";
+import { ErrorBanner, LoadingCard } from "@/components/status-card";
 
 export function SettingsShell() {
   const accessToken = useStoredToken();
@@ -115,20 +116,20 @@ export function SettingsShell() {
       <div className={ui.shellWide}>
         <header className={`${ui.panel} fade-up-enter-delay-1`}>
           <Link className={ui.linkMuted} href="/dashboard">
-            ← Dashboard
+            ← Inicio
           </Link>
-          <h1 className={`mt-3 text-3xl font-semibold tracking-tight sm:text-4xl ${ui.textPrimary}`}>Settings</h1>
-          <p className={`mt-3 ${ui.textMuted}`}>Manage categories and profile information.</p>
+          <h1 className={`mt-3 text-3xl font-semibold tracking-tight sm:text-4xl ${ui.textPrimary}`}>Configuración</h1>
+          <p className={`mt-3 ${ui.textMuted}`}>Administrá categorías e información de perfil.</p>
         </header>
 
         <section className={`${ui.panel} fade-up-enter-delay-1`}>
-          <h2 className={`text-2xl font-semibold ${ui.textPrimary}`}>Profile</h2>
-          {meQuery.isLoading ? <p className={`mt-4 text-sm ${ui.textMuted}`}>Loading profile...</p> : null}
-          {meQuery.isError ? <ErrorBanner message="Profile could not be loaded." /> : null}
+          <h2 className={`text-2xl font-semibold ${ui.textPrimary}`}>Perfil</h2>
+          {meQuery.isLoading ? <p className={`mt-4 text-sm ${ui.textMuted}`}>Cargando perfil...</p> : null}
+          {meQuery.isError ? <ErrorBanner message="No se pudo cargar el perfil." /> : null}
           {meQuery.data ? (
             <div className="mt-4 grid gap-3 text-sm text-[var(--text-secondary)]">
               <p>
-                <span className={ui.textMuted}>Name:</span> {meQuery.data.fullName}
+                <span className={ui.textMuted}>Nombre:</span> {meQuery.data.fullName}
               </p>
               <p>
                 <span className={ui.textMuted}>Email:</span> {meQuery.data.email}
@@ -137,10 +138,10 @@ export function SettingsShell() {
           ) : null}
         </section>
 
-        {categoriesQuery.isLoading ? <LoadingCard label="Loading categories..." /> : null}
-        {budgetsQuery.isLoading ? <LoadingCard label="Loading budgets..." /> : null}
-        {categoriesQuery.isError ? <ErrorBanner message="Could not load categories." /> : null}
-        {budgetsQuery.isError ? <ErrorBanner message="Could not load budgets." /> : null}
+        {categoriesQuery.isLoading ? <LoadingCard label="Cargando categorías..." /> : null}
+        {budgetsQuery.isLoading ? <LoadingCard label="Cargando presupuestos..." /> : null}
+        {categoriesQuery.isError ? <ErrorBanner message="No se pudieron cargar las categorías." /> : null}
+        {budgetsQuery.isError ? <ErrorBanner message="No se pudieron cargar los presupuestos." /> : null}
         {categoriesQuery.data && budgetsQuery.data ? (
           <CategoriesManager
             categories={categoriesQuery.data}
@@ -163,10 +164,3 @@ export function SettingsShell() {
   );
 }
 
-function LoadingCard({ label }: { label: string }) {
-  return <div className={`rounded-3xl border border-[var(--border-muted)] bg-[var(--surface-2)] p-5 text-sm ${ui.textMuted}`}>{label}</div>;
-}
-
-function ErrorBanner({ message }: { message: string }) {
-  return <div className={ui.errorBanner}>{message}</div>;
-}

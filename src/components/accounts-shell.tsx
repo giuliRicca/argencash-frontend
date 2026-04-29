@@ -6,7 +6,8 @@ import { useState } from "react";
 
 import { postJson, requestJson } from "@/lib/api";
 import { buildAuthorizationHeader } from "@/lib/auth-token";
-import { Account, AccountType, CreateAccountRequest } from "@/lib/contracts";
+import type { Account, AccountType, CreateAccountRequest } from "@/lib/contracts";
+import { formatAccountTypeLabel } from "@/lib/labels";
 import { useUnauthorizedRedirect } from "@/lib/hooks/use-unauthorized-redirect";
 import { useStoredToken } from "@/lib/storage";
 import { ui } from "@/lib/ui";
@@ -14,6 +15,7 @@ import { DashboardSidebar } from "@/components/dashboard-sidebar";
 import { formatRate } from "@/components/formatters";
 import { MissingSessionState } from "@/components/missing-session-state";
 import { CreateAccountModal } from "@/components/create-account-modal";
+import { ErrorBanner, EmptyState, LoadingCard } from "@/components/status-card";
 
 export function AccountsShell() {
   const accessToken = useStoredToken();
@@ -61,12 +63,12 @@ export function AccountsShell() {
           <header className={`${ui.heroPanel} relative bg-[linear-gradient(140deg,rgba(23,34,30,0.95),rgba(15,24,22,0.9))]`}>
             <div className="flex w-full items-center justify-between gap-4">
               <div>
-                <h1 className={`text-2xl font-semibold sm:text-3xl ${ui.textPrimary}`}>Accounts</h1>
-                <p className={`mt-1 text-sm ${ui.textMuted}`}>Manage balances, credit cards, and account settings.</p>
+                <h1 className={`text-2xl font-semibold sm:text-3xl ${ui.textPrimary}`}>Cuentas</h1>
+                <p className={`mt-1 text-sm ${ui.textMuted}`}>Administrá saldos, tarjetas y configuración de cuentas.</p>
               </div>
               <div className="flex items-center gap-2">
                 <button className={`text-sm ${ui.buttonBase} ${ui.buttonGold}`} onClick={() => setShowCreateModal(true)} type="button">
-                  + Add account
+                  + Agregar cuenta
                 </button>
                 <button
                   aria-label="Menu"
@@ -88,8 +90,8 @@ export function AccountsShell() {
 
           <section className={`${ui.panel} fade-up-enter-delay-1`}>
             <div className="grid gap-3 sm:gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {accountsQuery.isLoading ? <LoadingCard label="Loading accounts..." /> : null}
-              {accountsQuery.isError ? <ErrorBanner message="Accounts could not be loaded." /> : null}
+              {accountsQuery.isLoading ? <LoadingCard label="Cargando cuentas..." /> : null}
+              {accountsQuery.isError ? <ErrorBanner message="No se pudieron cargar las cuentas." /> : null}
               {accountsQuery.data?.length === 0 ? <EmptyAccountsCard onCreateAccount={() => setShowCreateModal(true)} /> : null}
               {accountsQuery.data?.map((account) => (
                 <AccountCard key={account.id} account={account} accounts={accountsQuery.data ?? []} />
@@ -129,7 +131,7 @@ function AccountCard({ account, accounts }: { account: Account; accounts: Accoun
             </div>
             {account.accountType === "CREDIT" ? (
               <p className={`mt-2 text-xs ${ui.textMuted}`}>
-                Pays day {account.paymentDayOfMonth ?? "-"} from {resolveFundingAccountName(accounts, account.fundingAccountId)}
+                Paga el día {account.paymentDayOfMonth ?? "-"} desde {resolveFundingAccountName(accounts, account.fundingAccountId)}
               </p>
             ) : null}
             <div className={`mt-2 space-y-1 text-sm ${ui.textMuted}`}>
@@ -144,10 +146,6 @@ function AccountCard({ account, accounts }: { account: Account; accounts: Accoun
   );
 }
 
-function formatAccountTypeLabel(accountType: AccountType) {
-  return accountType === "CREDIT" ? "Credit" : "Standard";
-}
-
 function getAccountTypeIcon(accountType: AccountType) {
   return accountType === "CREDIT" ? "[CC]" : "[BK]";
 }
@@ -157,23 +155,14 @@ function resolveFundingAccountName(accounts: Account[], fundingAccountId: string
     return "-";
   }
 
-  return accounts.find((account) => account.id === fundingAccountId)?.name ?? "Unknown account";
-}
-
-function LoadingCard({ label }: { label: string }) {
-  return <div className={`rounded-2xl border border-[var(--border-muted)] bg-[var(--surface-2)] p-4 text-sm ${ui.textMuted}`}>{label}</div>;
+  return accounts.find((account) => account.id === fundingAccountId)?.name ?? "Cuenta desconocida";
 }
 
 function EmptyAccountsCard({ onCreateAccount }: { onCreateAccount: () => void }) {
   return (
-    <div className={`rounded-2xl border border-dashed border-[var(--border-dashed)] bg-[var(--surface-2)] p-5 text-sm ${ui.textMuted}`}>
-      <p className="inline-flex items-center gap-2 text-sm">[AC] No accounts yet.</p>
-      <p className="mt-2">Create your first account to start tracking balances and transactions.</p>
-      <button className={`mt-3 text-sm ${ui.buttonBase} ${ui.buttonGold}`} onClick={onCreateAccount} type="button">Create account</button>
-    </div>
+    <EmptyState action={<button className={`text-sm ${ui.buttonBase} ${ui.buttonGold}`} onClick={onCreateAccount} type="button">Crear cuenta</button>}>
+      <p className="inline-flex items-center gap-2 text-sm">[AC] Todavía no hay cuentas.</p>
+      <p className="mt-2">Creá tu primera cuenta para empezar a seguir saldos y movimientos.</p>
+    </EmptyState>
   );
-}
-
-function ErrorBanner({ message }: { message: string }) {
-  return <div className={ui.errorBanner}>{message}</div>;
 }

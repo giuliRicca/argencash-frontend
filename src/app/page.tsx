@@ -34,29 +34,29 @@ export default function Home() {
             <div className="flex flex-wrap items-center justify-between gap-4">
               <BrandLogo className="text-5xl sm:text-6xl" />
               <span className="rounded-full border border-[var(--accent-gold-border)] bg-[var(--accent-gold-soft)] px-4 py-2 text-xs uppercase tracking-[0.16em] text-[var(--accent-gold-text)]">
-                Personal Finance, Rebuilt
+                Finanzas personales, sin ruido
               </span>
             </div>
 
             <div className="max-w-3xl">
               <h1 className={`text-3xl font-semibold leading-tight sm:text-4xl ${ui.textPrimary}`}>
-                Track your money across ARS and USD in one calm workspace.
+                Controla tu plata en ARS y USD desde un solo lugar.
               </h1>
               <p className={`mt-4 text-base sm:text-lg ${ui.textSecondary}`}>
-                ArgenCash helps you record spending, move balances, and read real portfolio value with live conversion context.
+                ArgenCash te ayuda a registrar gastos, mover saldos y ver el valor real de tu portfolio con cotizaciones actualizadas.
               </p>
               <p className={`mt-3 max-w-2xl text-sm sm:text-base ${ui.textSecondary}`}>
-                In Argentina, inflation and parallel exchange markets can make your true balance hard to read. ArgenCash centralizes accounts,
-                movements, and rate references so you can make decisions with clarity instead of guesswork.
+                En Argentina, inflación y tipos de cambio paralelos vuelven difícil entender tu saldo real. ArgenCash centraliza cuentas,
+                movimientos y referencias de tipo de cambio para decidir con claridad.
               </p>
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
               <Link className={`inline-flex justify-center ${ui.buttonBase} ${ui.buttonSolidGold} !text-[var(--accent-gold-ink)] px-6 py-3`} href="/register" prefetch={false}>
-                Create Account
+                Crear cuenta
               </Link>
               <Link className={`inline-flex justify-center ${ui.buttonBase} ${ui.buttonNeutral} px-6 py-3`} href="/login" prefetch={false}>
-                Log in
+                Ingresar
               </Link>
             </div>
           </div>
@@ -72,7 +72,7 @@ export default function Home() {
         </section>
 
         <section className="fade-up-enter-delay-2 rounded-3xl border border-[var(--border-muted)] bg-[var(--surface-2)] p-5 sm:p-6">
-          <p className="text-xs uppercase tracking-[0.16em] text-[var(--text-muted)]">Why ArgenCash</p>
+          <p className="text-xs uppercase tracking-[0.16em] text-[var(--text-muted)]">Por qué ArgenCash</p>
           <ul className="mt-3 grid gap-2 sm:grid-cols-3">
             {problemPoints.map((point) => (
               <li key={point} className={`rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-3)] px-4 py-3 text-sm ${ui.textSecondary}`}>
@@ -95,11 +95,11 @@ export default function Home() {
         <section className="fade-up-enter-delay-2 rounded-[var(--radius-panel)] border border-[var(--border-soft)] bg-[var(--surface-1)] p-6 sm:p-8">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">Ready To Start</p>
-              <p className={`mt-2 text-xl font-semibold ${ui.textPrimary}`}>Start tracking with clarity across ARS and USD.</p>
+              <p className="text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">Listo para empezar</p>
+              <p className={`mt-2 text-xl font-semibold ${ui.textPrimary}`}>Empezá a controlar ARS y USD con claridad.</p>
             </div>
             <Link className={`inline-flex justify-center ${ui.buttonBase} ${ui.buttonSolidGold} !text-[var(--accent-gold-ink)] px-6 py-3`} href="/register" prefetch={false}>
-              Get Started
+              Empezar
             </Link>
           </div>
         </section>
@@ -109,31 +109,31 @@ export default function Home() {
 }
 
 const trustPoints = [
-  { label: "Live Rates", value: "Official, Blue, CCL, and Crypto references" },
-  { label: "Multi-Account", value: "Track balances across currencies in one view" },
-  { label: "Daily Control", value: "Income, expenses, transfers, and budgets" },
+  { label: "Cotizaciones", value: "Referencias oficial, blue, CCL y crypto" },
+  { label: "Multi-cuenta", value: "Saldos por moneda en una sola vista" },
+  { label: "Control diario", value: "Ingresos, gastos, transferencias y presupuestos" },
 ];
 
 const features = [
   {
     kicker: "Portfolio",
-    title: "See your real total at a glance",
-    description: "Monitor account balances in native and converted values so you can understand exposure instantly.",
+    title: "Mira tu total real de un vistazo",
+    description: "Seguí saldos nativos y convertidos para entender tu exposición al instante.",
   },
   {
-    kicker: "Movements",
-    title: "Log every operation with context",
-    description: "Keep your ledger clear with categorized income, expenses, and editable transaction history.",
+    kicker: "Movimientos",
+    title: "Registrá cada operación con contexto",
+    description: "Mantené tus movimientos claros con ingresos, gastos y historial editable por categoría.",
   },
   {
-    kicker: "Decisions",
-    title: "Act with exchange-rate awareness",
-    description: "Use built-in market references while moving money between ARS and USD balances.",
+    kicker: "Decisiones",
+    title: "Actuá con contexto cambiario",
+    description: "Usa referencias de mercado al mover plata entre saldos ARS y USD.",
   },
 ];
 
 const problemPoints = [
-  "Balances are split across accounts and currencies.",
-  "Rate volatility makes day-to-day decisions harder.",
-  "Most tools do not reflect your real ARS/USD picture.",
+  "Los saldos quedan partidos entre cuentas y monedas.",
+  "La volatilidad complica decisiones de todos los días.",
+  "Muchas herramientas no muestran tu foto real ARS/USD.",
 ];

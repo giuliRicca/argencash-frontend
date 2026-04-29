@@ -18,13 +18,16 @@ import {
 } from "@/lib/contracts";
 import { useStoredToken } from "@/lib/storage";
 import { useUnauthorizedRedirect } from "@/lib/hooks/use-unauthorized-redirect";
+import { formatTransactionTypeLabel } from "@/lib/labels";
 import { ui } from "@/lib/ui";
-import { formatRate } from "@/components/formatters";
+import { assistantEnabled } from "@/lib/feature-flags";
+import { formatRate, formatShortDateTime } from "@/components/formatters";
 import { useEffect, useState } from "react";
 import { CreateTransactionModal } from "@/components/create-transaction-modal";
 import { CreateTransferModal } from "@/components/create-transfer-modal";
 import { MissingSessionState } from "@/components/missing-session-state";
 import { DashboardSidebar } from "@/components/dashboard-sidebar";
+import { ErrorBanner, EmptyState, LoadingCard } from "@/components/status-card";
 
 const RECENT_ACTIVITY_PAGE_SIZE = 10;
 
@@ -193,9 +196,9 @@ export function DashboardShell() {
             <div className="flex items-center justify-between w-full">
               <div>
                 <p className={`text-lg font-semibold sm:text-2xl ${ui.textPrimary}`}>
-                  {meQuery.data?.fullName ?? "Loading..."}
+                  {meQuery.data?.fullName ?? "Cargando..."}
                 </p>
-                <p className={`mt-1 text-sm ${ui.textMuted}`}>Overview of your portfolio, activity, and budgets.</p>
+                <p className={`mt-1 text-sm ${ui.textMuted}`}>Resumen de portfolio, actividad y presupuestos.</p>
               </div>
 
               <button
@@ -215,31 +218,36 @@ export function DashboardShell() {
             </div>
           </header>
 
-          {meQuery.isError ? <ErrorBanner message="The current session could not be loaded." /> : null}
+          {meQuery.isError ? <ErrorBanner message="No se pudo cargar la sesión actual." /> : null}
 
           <section className={`${ui.panel} fade-up-enter-delay-1 bg-[linear-gradient(165deg,rgba(25,36,33,0.92),rgba(17,25,23,0.92))]`}>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <h2 className={`text-xl sm:text-2xl font-semibold ${ui.textPrimary}`}>Portfolio total</h2>
+              <h2 className={`text-xl sm:text-2xl font-semibold ${ui.textPrimary}`}>Total del portfolio</h2>
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   className={`text-sm ${ui.buttonBase} ${ui.buttonGold}`}
                   onClick={() => setShowTransactionModal(true)}
                   type="button"
                 >
-                  + Add transaction
+                  + Agregar movimiento
                 </button>
+                {assistantEnabled ? (
+                  <Link className={`text-sm ${ui.buttonBase} ${ui.buttonSolidGold}`} href="/assistant">
+                    Registrar con IA
+                  </Link>
+                ) : null}
                 <button
                   className={`text-sm ${ui.buttonBase} ${ui.buttonInfo}`}
                   onClick={() => setShowTransferModal(true)}
                   type="button"
                 >
-                  Transfer
+                  Transferir
                 </button>
                 <Link className={`text-sm ${ui.buttonBase} ${ui.buttonNeutral}`} href="/settings#budgets">
-                  Budgets
+                  Presupuestos
                 </Link>
                 <Link className={`text-sm ${ui.buttonBase} ${ui.buttonNeutral}`} href="/accounts">
-                  View accounts
+                  Ver cuentas
                 </Link>
               </div>
             </div>
@@ -262,24 +270,24 @@ export function DashboardShell() {
             </div>
           </section>
 
-          {accountsQuery.isError ? <ErrorBanner message="Accounts could not be loaded." /> : null}
+          {accountsQuery.isError ? <ErrorBanner message="No se pudieron cargar las cuentas." /> : null}
 
           <section className="fade-up-enter-delay-1 grid gap-3 sm:gap-4 md:grid-cols-3">
-            <QuickStatCard label="Income (month)" value={`USD ${formatRate(quickStats.incomeUsd)}`} tone="income" />
-            <QuickStatCard label="Expenses (month)" value={`USD ${formatRate(quickStats.expenseUsd)}`} tone="expense" />
-            <QuickStatCard label="Net change" value={`USD ${formatRate(quickStats.netUsd)}`} tone={quickStats.netUsd >= 0 ? "income" : "expense"} />
+            <QuickStatCard label="Ingresos (mes)" value={`USD ${formatRate(quickStats.incomeUsd)}`} tone="income" />
+            <QuickStatCard label="Gastos (mes)" value={`USD ${formatRate(quickStats.expenseUsd)}`} tone="expense" />
+            <QuickStatCard label="Cambio neto" value={`USD ${formatRate(quickStats.netUsd)}`} tone={quickStats.netUsd >= 0 ? "income" : "expense"} />
           </section>
 
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)]">
               <section className={`${ui.panel} fade-up-enter-delay-1`}>
                 <div className="flex items-center justify-between gap-3">
-                  <h2 className={`text-xl font-semibold ${ui.textPrimary}`}>Recent activity</h2>
+                  <h2 className={`text-xl font-semibold ${ui.textPrimary}`}>Actividad reciente</h2>
                   <span className={ui.badgeInfo}>{recentTransactionsQuery.data?.totalCount ?? 0}</span>
                 </div>
 
                 <div className="mt-4 grid gap-3">
-                  {recentTransactionsQuery.isLoading ? <LoadingCard label="Loading recent transactions..." /> : null}
-                  {recentTransactionsQuery.isError ? <ErrorBanner message="Recent transactions could not be loaded." /> : null}
+                  {recentTransactionsQuery.isLoading ? <LoadingCard label="Cargando movimientos recientes..." /> : null}
+                  {recentTransactionsQuery.isError ? <ErrorBanner message="No se pudieron cargar los movimientos recientes." /> : null}
                   {recentTransactionsQuery.data?.items.length === 0 ? <EmptyTransactionsCard onCreateTransaction={() => setShowTransactionModal(true)} /> : null}
                   {recentTransactionsQuery.data?.items.map((transaction) => (
                     <article key={transaction.id} className="rounded-2xl border border-[var(--border-muted)] bg-[var(--surface-2)] p-3">
@@ -287,9 +295,9 @@ export function DashboardShell() {
                         <div className="min-w-0">
                           <p className={`inline-flex items-center gap-2 text-sm font-semibold ${ui.textPrimary}`}>
                             <span>{getTransactionIcon(transaction)}</span>
-                            <span className="truncate">{transaction.description || "Transaction"}</span>
+                            <span className="truncate">{transaction.description || "Movimiento"}</span>
                           </p>
-                          <p className={`mt-1 text-xs ${ui.textMuted}`}>{transaction.accountName} - {formatDateTime(transaction.transactionDate)}</p>
+                          <p className={`mt-1 text-xs ${ui.textMuted}`}>{transaction.accountName} - {formatShortDateTime(transaction.transactionDate)}</p>
                           {transaction.categoryName ? (
                             <span className={`mt-2 inline-flex items-center gap-1 rounded-full border border-[var(--accent-gold-border)] bg-[var(--accent-gold-soft)] px-2 py-0.5 text-[10px] text-[var(--accent-gold-text)]`}>
                               <span>{getCategoryIcon(transaction.categoryName)}</span>
@@ -299,7 +307,7 @@ export function DashboardShell() {
                         </div>
                         <div className="text-right">
                           <p className={`text-xs uppercase tracking-[0.12em] ${transaction.transactionType === "EXPENSE" ? ui.textExpense : ui.textIncome}`}>
-                            {transaction.transactionType}
+                            {formatTransactionTypeLabel(transaction.transactionType)}
                           </p>
                           <p className={`text-sm font-semibold ${transaction.transactionType === "EXPENSE" ? "text-[var(--state-danger)]" : ui.textPrimary}`}>
                             {transaction.currency} {formatRate(transaction.amount)}
@@ -312,7 +320,7 @@ export function DashboardShell() {
                 {recentTransactionsQuery.data && recentTransactionsQuery.data.totalPages > 1 ? (
                   <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <p className={`text-sm ${ui.textMuted}`}>
-                      Page {recentTransactionsQuery.data.page} of {recentTransactionsQuery.data.totalPages}
+                      Página {recentTransactionsQuery.data.page} de {recentTransactionsQuery.data.totalPages}
                     </p>
                     <div className="flex items-center gap-2">
                       <button
@@ -321,7 +329,7 @@ export function DashboardShell() {
                         onClick={() => setRecentActivityPage((page) => Math.max(1, page - 1))}
                         type="button"
                       >
-                        Previous
+                        Anterior
                       </button>
                       <button
                         className={`text-sm ${ui.buttonBase} ${ui.buttonNeutral}`}
@@ -329,7 +337,7 @@ export function DashboardShell() {
                         onClick={() => setRecentActivityPage((page) => page + 1)}
                         type="button"
                       >
-                        Next
+                        Siguiente
                       </button>
                     </div>
                   </div>
@@ -337,16 +345,15 @@ export function DashboardShell() {
               </section>
 
               <section className={`${ui.panel} fade-up-enter-delay-2`}>
-                <h2 className={`text-xl font-semibold ${ui.textPrimary}`}>Monthly budgets</h2>
+                <h2 className={`text-xl font-semibold ${ui.textPrimary}`}>Presupuestos mensuales</h2>
 
                 <div className={`mt-4 ${ui.tile}`}>
-                  {budgetsQuery.isLoading ? <LoadingCard label="Loading budgets..." /> : null}
-                  {budgetsQuery.isError ? <ErrorBanner message="Budgets could not be loaded." /> : null}
+                  {budgetsQuery.isLoading ? <LoadingCard label="Cargando presupuestos..." /> : null}
+                  {budgetsQuery.isError ? <ErrorBanner message="No se pudieron cargar los presupuestos." /> : null}
                   {budgetsQuery.data?.length === 0 ? (
-                    <div className={`rounded-2xl border border-dashed border-[var(--border-dashed)] bg-[var(--surface-2)] p-4 sm:p-6 text-sm ${ui.textMuted}`}>
-                      <p className="inline-flex items-center gap-2"><span>[BG]</span>No budgets yet.</p>
-                      <Link className={`mt-3 inline-flex ${ui.buttonBase} ${ui.buttonNeutral}`} href="/settings#budgets">Create budget</Link>
-                    </div>
+                    <EmptyState action={<Link className={`inline-flex ${ui.buttonBase} ${ui.buttonNeutral}`} href="/settings#budgets">Crear presupuesto</Link>}>
+                      <p className="inline-flex items-center gap-2"><span>[BG]</span>Todavía no hay presupuestos.</p>
+                    </EmptyState>
                   ) : null}
                   {budgetsQuery.data?.length ? <BudgetOverview budgets={budgetsQuery.data} /> : null}
                 </div>
@@ -434,7 +441,7 @@ function QuickStatCard({
 }
 
 function BudgetOverview({ budgets }: { budgets: Budget[] }) {
-  const monthLabel = new Date(Date.UTC(budgets[0].year, budgets[0].month - 1, 1)).toLocaleString(undefined, {
+  const monthLabel = new Date(Date.UTC(budgets[0].year, budgets[0].month - 1, 1)).toLocaleString("es-AR", {
     month: "long",
     year: "numeric",
     timeZone: "UTC",
@@ -500,13 +507,13 @@ function BudgetOverview({ budgets }: { budgets: Budget[] }) {
             <div className={`mt-1.5 flex items-center justify-between text-xs ${ui.textMuted}`}>
               <span>{formatRate(budget.usagePercentage)}%</span>
               <span className="inline-flex items-center gap-1 rounded-full border border-[var(--border-muted)] bg-[var(--surface-2)] px-2 py-0.5">
-                Remaining: {budget.currency} {formatRate(budget.remainingAmount)}
+                Restante: {budget.currency} {formatRate(budget.remainingAmount)}
               </span>
             </div>
             {isHighUsage ? (
               <p className={`mt-2 inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] ${isExceeded ? "border-[var(--state-danger-border)] text-[var(--state-danger)] bg-[var(--state-danger-soft)]" : "border-[var(--accent-gold-border)] text-[var(--accent-gold-text)] bg-[var(--accent-gold-soft)]"}`}>
                 <span>{isExceeded ? "!!" : "!"}</span>
-                {isExceeded ? "Budget exceeded" : "Approaching budget limit"}
+                {isExceeded ? "Presupuesto excedido" : "Cerca del límite"}
               </p>
             ) : null}
           </article>
@@ -550,29 +557,11 @@ function getTransactionIcon(transaction: DashboardRecentTransaction) {
   return "[TX]";
 }
 
-function formatDateTime(value: string) {
-  return new Date(value).toLocaleString(undefined, {
-    day: "2-digit",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function LoadingCard({ label }: { label: string }) {
-  return <div className={`rounded-2xl border border-[var(--border-muted)] bg-[var(--surface-2)] p-4 text-sm ${ui.textMuted}`}>{label}</div>;
-}
-
 function EmptyTransactionsCard({ onCreateTransaction }: { onCreateTransaction: () => void }) {
   return (
-    <div className={`rounded-2xl border border-dashed border-[var(--border-dashed)] bg-[var(--surface-2)] p-5 text-sm ${ui.textMuted}`}>
-      <p className="inline-flex items-center gap-2 text-sm">[TX] No recent transactions.</p>
-      <p className="mt-2">Add your first transaction to get monthly insights and activity trends.</p>
-      <button className={`mt-3 text-sm ${ui.buttonBase} ${ui.buttonInfo}`} onClick={onCreateTransaction} type="button">Add transaction</button>
-    </div>
+    <EmptyState action={<button className={`text-sm ${ui.buttonBase} ${ui.buttonInfo}`} onClick={onCreateTransaction} type="button">Agregar movimiento</button>}>
+      <p className="inline-flex items-center gap-2 text-sm">[TX] No hay movimientos recientes.</p>
+      <p className="mt-2">Agregá tu primer movimiento para ver resumen mensual y actividad.</p>
+    </EmptyState>
   );
-}
-
-function ErrorBanner({ message }: { message: string }) {
-  return <div className={ui.errorBanner}>{message}</div>;
 }

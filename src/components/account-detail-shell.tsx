@@ -18,6 +18,7 @@ import {
   UpdateAccountRequest,
   UpdateTransactionRequest,
 } from "@/lib/contracts";
+import { formatAccountTypeLabel, formatTransactionTypeLabel } from "@/lib/labels";
 import { useUnauthorizedRedirect } from "@/lib/hooks/use-unauthorized-redirect";
 import { useStoredToken } from "@/lib/storage";
 import { ui } from "@/lib/ui";
@@ -26,6 +27,7 @@ import { CreateTransactionModal } from "@/components/create-transaction-modal";
 import { CreateTransferModal } from "@/components/create-transfer-modal";
 import { EditTransactionModal } from "@/components/edit-transaction-modal";
 import { MissingSessionState } from "@/components/missing-session-state";
+import { ErrorBanner } from "@/components/status-card";
 
 type AccountDetailShellProps = {
   accountId: string;
@@ -173,9 +175,9 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
         <div className="fade-up-enter flex items-center justify-between gap-4">
           <div>
             <Link className={ui.linkMuted} href="/accounts">
-              ← Accounts
+              ← Cuentas
             </Link>
-            <h1 className={`mt-3 text-3xl font-semibold tracking-tight ${ui.textPrimary}`}>{accountQuery.data?.name ?? "Account"}</h1>
+            <h1 className={`mt-3 text-3xl font-semibold tracking-tight ${ui.textPrimary}`}>{accountQuery.data?.name ?? "Cuenta"}</h1>
             {accountQuery.data ? (
               <div className="mt-3 flex flex-wrap items-center gap-3">
                 <span className={ui.badgeGold}>
@@ -186,7 +188,7 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
                 </span>
                 {accountQuery.data.accountType === "CREDIT" ? (
                   <span className={`text-xs ${ui.textMuted}`}>
-                    Pays day {accountQuery.data.paymentDayOfMonth ?? "-"} from {resolveFundingAccountName(accountsQuery.data ?? [], accountQuery.data.fundingAccountId)}
+                    Paga el día {accountQuery.data.paymentDayOfMonth ?? "-"} desde {resolveFundingAccountName(accountsQuery.data ?? [], accountQuery.data.fundingAccountId)}
                   </span>
                 ) : null}
                 {isEditingName ? (
@@ -213,8 +215,8 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
                       onChange={(event) => setAccountTypeDraft(event.target.value as AccountType)}
                       value={accountTypeDraft}
                     >
-                      <option value="STANDARD">Standard</option>
-                      <option value="CREDIT">Credit card</option>
+                      <option value="STANDARD">Común</option>
+                      <option value="CREDIT">Tarjeta de crédito</option>
                     </select>
                     {accountTypeDraft === "CREDIT" ? (
                       <>
@@ -224,7 +226,7 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
                           value={resolvedFundingAccountIdDraft}
                         >
                           {eligibleFundingAccounts.length === 0 ? (
-                            <option value="">No eligible standard accounts</option>
+                            <option value="">No hay cuentas comunes disponibles</option>
                           ) : null}
                           {eligibleFundingAccounts.map((account) => (
                             <option key={account.id} value={account.id}>
@@ -241,7 +243,7 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
                           value={paymentDayOfMonthDraft}
                         />
                         {eligibleFundingAccounts.length === 0 ? (
-                          <span className="text-xs text-[var(--state-danger)]">Create a standard account first.</span>
+                          <span className="text-xs text-[var(--state-danger)]">Creá una cuenta común primero.</span>
                         ) : null}
                       </>
                     ) : null}
@@ -283,7 +285,7 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
                       }}
                       type="button"
                     >
-                      {updateAccountNameMutation.isPending ? "Saving..." : "Save"}
+                      {updateAccountNameMutation.isPending ? "Guardando..." : "Guardar"}
                     </button>
                     <button
                       className={`${ui.buttonBase} ${ui.buttonNeutral} rounded-xl px-3 py-2 text-xs`}
@@ -298,7 +300,7 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
                       }}
                       type="button"
                     >
-                      Cancel
+                      Cancelar
                     </button>
                   </>
                 ) : (
@@ -314,7 +316,7 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
                     }}
                     type="button"
                   >
-                    Edit account
+                    Editar cuenta
                   </button>
                 )}
               </div>
@@ -327,20 +329,20 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
           ) : null}
         </div>
 
-        {accountQuery.isLoading ? <Card><p className={`text-sm ${ui.textMuted}`}>Loading account...</p></Card> : null}
-        {accountQuery.isError ? <ErrorBanner message="Account could not be loaded." /> : null}
+        {accountQuery.isLoading ? <Card><p className={`text-sm ${ui.textMuted}`}>Cargando cuenta...</p></Card> : null}
+        {accountQuery.isError ? <ErrorBanner message="No se pudo cargar la cuenta." /> : null}
         {updateAccountNameMutation.error ? <ErrorBanner message={(updateAccountNameMutation.error as Error).message} /> : null}
 
         {accountQuery.data ? (
           <>
             <div className="fade-up-enter-delay-1 grid gap-4 md:grid-cols-2">
-              <BalanceCard label="USD total" value={`USD ${formatRate(accountQuery.data.balanceUsd)}`} />
-              <BalanceCard label="ARS total" value={`ARS ${formatRate(accountQuery.data.balanceArs)}`} />
+              <BalanceCard label="Total USD" value={`USD ${formatRate(accountQuery.data.balanceUsd)}`} />
+              <BalanceCard label="Total ARS" value={`ARS ${formatRate(accountQuery.data.balanceArs)}`} />
             </div>
 
             <Card className="fade-up-enter-delay-2">
               <div className="flex items-center justify-between gap-4">
-                <h2 className={`text-2xl font-semibold ${ui.textPrimary}`}>Transactions</h2>
+                <h2 className={`text-2xl font-semibold ${ui.textPrimary}`}>Movimientos</h2>
                 <div className="flex flex-wrap items-center gap-3">
                   <span className={ui.badgeGold}>
                     {accountQuery.data.transactions.length}
@@ -349,14 +351,14 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
                     className={`text-sm ${ui.buttonBase} ${ui.buttonGold}`}
                     onClick={() => setShowAddModal(true)}
                   >
-                    + Add
+                    + Agregar
                   </button>
                   <button
                     className={`text-sm ${ui.buttonBase} ${ui.buttonInfo}`}
                     onClick={() => setShowTransferModal(true)}
                     type="button"
                   >
-                    Transfer
+                    Transferir
                   </button>
                 </div>
               </div>
@@ -364,7 +366,7 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
               <div className="mt-6 grid gap-4">
                 {accountQuery.data.transactions.length === 0 ? (
                   <div className={`rounded-3xl border border-dashed border-[var(--border-dashed)] bg-[var(--surface-2)] p-6 text-sm ${ui.textMuted}`}>
-                    No transactions.
+                    No hay movimientos.
                   </div>
                 ) : (
                   accountQuery.data.transactions.map((transaction) => {
@@ -379,12 +381,12 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
                             <p className={`mt-1 text-sm ${ui.textMuted}`}>{formatDateTime(transaction.transactionDate)}</p>
                             {isTransfer ? (
                               <span className={`mt-2 inline-block ${ui.badgeInfo}`}>
-                                Transfer
+                                Transferencia
                               </span>
                             ) : null}
                             {isTransfer && transaction.counterpartyAccountName ? (
                               <p className={`mt-2 text-xs ${ui.textMuted}`}>
-                                {isExpense ? `To ${transaction.counterpartyAccountName}` : `From ${transaction.counterpartyAccountName}`}
+                                {isExpense ? `Hacia ${transaction.counterpartyAccountName}` : `Desde ${transaction.counterpartyAccountName}`}
                               </p>
                             ) : null}
                             {transaction.categoryName && (
@@ -394,7 +396,7 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
                             )}
                           </div>
                           <div className="text-right">
-                            <p className={`text-xs uppercase tracking-[0.18em] ${isExpense ? ui.textExpense : ui.textIncome}`}>{formatTransactionType(transaction.transactionType)}</p>
+                            <p className={`text-xs uppercase tracking-[0.18em] ${isExpense ? ui.textExpense : ui.textIncome}`}>{formatTransactionTypeLabel(transaction.transactionType)}</p>
                             <p className={`text-base font-semibold ${isExpense ? "text-[var(--state-danger)]" : ui.textPrimary}`}>
                               {transaction.currency} {formatRate(transaction.amount)}
                             </p>
@@ -402,7 +404,7 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
                             <p className={`text-sm ${ui.textMuted}`}>ARS {formatRate(transaction.convertedAmountArs)}</p>
                             {isTransfer ? (
                               <span className={`mt-3 inline-block rounded-xl border px-3 py-1 text-xs ${ui.textMuted}`}>
-                                Transfer not editable
+                                Transferencia no editable
                               </span>
                             ) : (
                               <button
@@ -411,7 +413,7 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
                                 onClick={() => setEditingTransaction(transaction)}
                                 type="button"
                               >
-                                Edit
+                                Editar
                               </button>
                             )}
                             <button
@@ -420,8 +422,8 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
                               onClick={() => {
                                 const confirmed = window.confirm(
                                   isTransfer
-                                    ? "This is a transfer. Deleting it will remove both sides. Continue?"
-                                    : "Delete this transaction?",
+                                    ? "Esto es una transferencia. Al borrarla se eliminan ambos lados. Continuar?"
+                                    : "Borrar este movimiento?",
                                 );
                                 if (!confirmed) {
                                   return;
@@ -431,7 +433,7 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
                               }}
                               type="button"
                             >
-                              {deletingTransactionId === transaction.id ? "Deleting..." : isTransfer ? "Delete transfer" : "Delete"}
+                              {deletingTransactionId === transaction.id ? "Borrando..." : isTransfer ? "Borrar transferencia" : "Borrar"}
                             </button>
                           </div>
                         </div>
@@ -568,20 +570,12 @@ function resolveFundingAccountDraftId(accounts: Account[], draftFundingAccountId
     : accounts[0].id;
 }
 
-function formatAccountTypeLabel(accountType: AccountType) {
-  return accountType === "CREDIT" ? "Credit" : "Standard";
-}
-
 function resolveFundingAccountName(accounts: Account[], fundingAccountId: string | null) {
   if (!fundingAccountId) {
     return "-";
   }
 
-  return accounts.find((account) => account.id === fundingAccountId)?.name ?? "Unknown account";
-}
-
-function formatTransactionType(transactionType: string) {
-  return transactionType === "EXPENSE" ? "Expense" : "Income";
+  return accounts.find((account) => account.id === fundingAccountId)?.name ?? "Cuenta desconocida";
 }
 
 function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
@@ -597,6 +591,3 @@ function BalanceCard({ label, value }: { label: string; value: string }) {
   );
 }
 
-function ErrorBanner({ message }: { message: string }) {
-  return <div className={ui.errorBanner}>{message}</div>;
-}
