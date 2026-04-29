@@ -134,6 +134,11 @@ export type CreateTransactionRequest = {
   transactionType: string;
   description?: string | null;
   categoryId: string | null;
+  transactionDate?: string;
+  source?: "MANUAL" | "ASSISTANT_TEXT" | "ASSISTANT_VOICE";
+  ignoreDuplicateWarning?: boolean;
+  assistantLearningKey?: string | null;
+  assistantSuggestedCategoryId?: string | null;
 };
 
 export type UpdateTransactionRequest = {
@@ -207,4 +212,42 @@ export type VerifyEmailRequest = {
 
 export type ResendVerificationRequest = {
   email: string;
+};
+
+export type AssistantTransactionDraft = {
+  accountId: string | null;
+  amount: number | null;
+  currency: "ARS" | "USD";
+  wasCurrencyDefaulted: boolean;
+  transactionType: "INCOME" | "EXPENSE" | null;
+  description: string;
+  categoryId: string | null;
+  categorySkipped: boolean;
+  transactionDate: string | null;
+  learningKey: string | null;
+  suggestedCategoryId: string | null;
+};
+
+export type AssistantFollowUpOption = {
+  label: string;
+  value: string | null;
+};
+
+export type AssistantFollowUp = {
+  field: string;
+  question: string;
+  options: AssistantFollowUpOption[];
+};
+
+export type AssistantDraftRequest = {
+  text: string;
+  previousDraft?: AssistantTransactionDraft | null;
+};
+
+export type AssistantDraftResponse = {
+  state: "ready_to_confirm" | "needs_followup" | "unsupported";
+  draft: AssistantTransactionDraft | null;
+  followUp: AssistantFollowUp | null;
+  warnings: string[];
+  message: string | null;
 };
