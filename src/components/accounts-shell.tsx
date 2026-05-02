@@ -58,7 +58,7 @@ export function AccountsShell() {
     <div className="flex min-h-screen">
       <DashboardSidebar />
       {showMenu ? <DashboardSidebar mobile onClose={() => setShowMenu(false)} /> : null}
-      <main className={`flex-1 lg:pl-20 2xl:pl-64 ${ui.page}`}>
+      <main className={`flex-1 xl:pl-32 2xl:pl-80 ${ui.page}`}>
         <div className={ui.shellWide}>
           <header className={`${ui.heroPanel} relative bg-[linear-gradient(140deg,rgba(23,34,30,0.95),rgba(15,24,22,0.9))]`}>
             <div className="flex w-full items-center justify-between gap-4">
@@ -72,7 +72,7 @@ export function AccountsShell() {
                 </button>
                 <button
                   aria-label="Menu"
-                  className="p-2 rounded-xl border border-[var(--border-strong)] hover:border-[var(--border-strong-hover)] transition lg:hidden"
+                  className="p-2 rounded-xl border border-[var(--border-strong)] hover:border-[var(--border-strong-hover)] transition xl:hidden"
                   onClick={() => setShowMenu(!showMenu)}
                   type="button"
                 >

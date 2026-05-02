@@ -69,12 +69,12 @@ export function DashboardSidebar({ mobile = false, onClose }: DashboardSidebarPr
   }, [onClose, router]);
 
   const containerClassName = mobile
-    ? "fixed inset-0 z-50 flex flex-col bg-[var(--surface-1)] lg:hidden"
-    : "hidden lg:fixed lg:inset-y-0 lg:z-40 lg:flex lg:w-20 2xl:w-64";
+    ? "fixed inset-0 z-50 flex flex-col bg-[var(--surface-1)] xl:hidden"
+    : "hidden xl:fixed xl:inset-y-0 xl:z-40 xl:flex xl:w-20 2xl:w-64";
 
   const logoClassName = mobile
     ? "max-w-full overflow-hidden whitespace-nowrap text-3xl sm:text-3xl"
-    : "max-w-full overflow-hidden whitespace-nowrap text-2xl sm:text-2xl 2xl:text-3xl";
+    : "max-w-full overflow-hidden whitespace-nowrap text-2xl 2xl:text-3xl";
 
   return (
     <aside className={containerClassName}>
@@ -82,7 +82,7 @@ export function DashboardSidebar({ mobile = false, onClose }: DashboardSidebarPr
         <div className={`flex items-center h-16 border-b border-[var(--border-soft)] ${mobile ? "justify-between px-4 sm:px-6" : "justify-center px-2 2xl:justify-start 2xl:px-6"}`}>
           <Link
             href="/dashboard"
-            className="max-w-full rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-gold-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface-1)]"
+            className={`rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-gold-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface-1)] ${mobile ? "max-w-full" : "flex h-11 w-14 items-center justify-center overflow-hidden 2xl:h-auto 2xl:w-auto 2xl:justify-start"}`}
             onClick={() => onClose?.()}
           >
             {mobile ? (
@@ -90,7 +90,7 @@ export function DashboardSidebar({ mobile = false, onClose }: DashboardSidebarPr
             ) : (
               <>
                 <span className="2xl:hidden">
-                  <BrandLogo className={logoClassName} compact />
+                  <BrandLogo className={`${logoClassName} leading-none`} compact />
                 </span>
                 <span className="hidden 2xl:block">
                   <BrandLogo className={logoClassName} />
@@ -120,7 +120,7 @@ export function DashboardSidebar({ mobile = false, onClose }: DashboardSidebarPr
                 href={item.href}
                 title={item.label}
                 onClick={() => onClose?.()}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors lg:justify-center 2xl:justify-start ${
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors xl:justify-center 2xl:justify-start ${
                   isActive
                     ? "bg-[var(--accent-gold-soft)] text-[var(--accent-gold)] border border-[var(--accent-gold-border)]"
                     : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-2)] border border-transparent"
@@ -134,7 +134,7 @@ export function DashboardSidebar({ mobile = false, onClose }: DashboardSidebarPr
         </nav>
         <div className="space-y-3 p-4 border-t border-[var(--border-soft)]">
           <button
-            className={`${ui.buttonBase} ${ui.buttonNeutral} w-full justify-start text-left text-[var(--state-danger)] lg:justify-center 2xl:justify-start`}
+            className={`${ui.buttonBase} ${ui.buttonNeutral} w-full justify-start text-left text-[var(--state-danger)] xl:justify-center 2xl:justify-start`}
             onClick={handleLogout}
             title="Log out"
             type="button"

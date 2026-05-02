@@ -190,7 +190,7 @@ export function DashboardShell() {
     <div className="flex min-h-screen">
       <DashboardSidebar />
       {showMenu ? <DashboardSidebar mobile onClose={() => setShowMenu(false)} /> : null}
-      <main className={`flex-1 lg:pl-20 2xl:pl-64 ${ui.page}`}>
+      <main className={`flex-1 xl:pl-32 2xl:pl-80 ${ui.page}`}>
         <div className={ui.shellWide}>
           <header className={`${ui.heroPanel} relative bg-[linear-gradient(140deg,rgba(23,34,30,0.95),rgba(15,24,22,0.9))]`}>
             <div className="flex items-center justify-between w-full">
@@ -203,7 +203,7 @@ export function DashboardShell() {
 
               <button
                 aria-label="Menu"
-                className="p-2 rounded-xl border border-[var(--border-strong)] hover:border-[var(--border-strong-hover)] transition lg:hidden"
+                className="p-2 rounded-xl border border-[var(--border-strong)] hover:border-[var(--border-strong-hover)] transition xl:hidden"
                 onClick={() => setShowMenu(!showMenu)}
                 type="button"
               >
@@ -223,7 +223,26 @@ export function DashboardShell() {
           <section className={`${ui.panel} fade-up-enter-delay-1 bg-[linear-gradient(165deg,rgba(25,36,33,0.92),rgba(17,25,23,0.92))]`}>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <h2 className={`text-xl sm:text-2xl font-semibold ${ui.textPrimary}`}>Total del portfolio</h2>
-              <div className="flex flex-wrap items-center gap-2">
+            </div>
+
+            <div className={`mt-4 sm:mt-5 ${ui.tile} border-[var(--accent-gold-border)] bg-[linear-gradient(165deg,rgba(16,24,22,0.9),rgba(15,21,20,0.9))]`}>
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className={`text-sm ${ui.textMuted}`}>{displayCurrency}</p>
+                  <p className={`mt-1 text-2xl font-semibold tracking-tight sm:text-4xl ${ui.textPrimary}`}>
+                    {displayCurrency} {formatRate(displayCurrency === "USD" ? portfolioTotals.usd : portfolioTotals.ars)}
+                  </p>
+                </div>
+                <select
+                  className={ui.select}
+                  onChange={(event) => setDisplayCurrency(event.target.value as "USD" | "ARS")}
+                  value={displayCurrency}
+                >
+                  <option value="USD">USD</option>
+                  <option value="ARS">ARS</option>
+                </select>
+              </div>
+              <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-[var(--border-soft)] pt-4">
                 <button
                   className={`text-sm ${ui.buttonBase} ${ui.buttonGold}`}
                   onClick={() => setShowTransactionModal(true)}
@@ -243,29 +262,6 @@ export function DashboardShell() {
                 >
                   Transferir
                 </button>
-                <Link className={`text-sm ${ui.buttonBase} ${ui.buttonNeutral}`} href="/settings#budgets">
-                  Presupuestos
-                </Link>
-                <Link className={`text-sm ${ui.buttonBase} ${ui.buttonNeutral}`} href="/accounts">
-                  Ver cuentas
-                </Link>
-              </div>
-            </div>
-
-            <div className={`mt-4 sm:mt-5 ${ui.tile} border-[var(--accent-gold-border)] bg-[linear-gradient(165deg,rgba(16,24,22,0.9),rgba(15,21,20,0.9))]`}>
-              <p className={`text-sm ${ui.textMuted}`}>{displayCurrency}</p>
-              <p className={`mt-1 text-2xl font-semibold tracking-tight sm:text-4xl ${ui.textPrimary}`}>
-                {displayCurrency} {formatRate(displayCurrency === "USD" ? portfolioTotals.usd : portfolioTotals.ars)}
-              </p>
-              <div className="mt-3 flex justify-start sm:justify-end">
-                <select
-                  className={ui.select}
-                  onChange={(event) => setDisplayCurrency(event.target.value as "USD" | "ARS")}
-                  value={displayCurrency}
-                >
-                  <option value="USD">USD</option>
-                  <option value="ARS">ARS</option>
-                </select>
               </div>
             </div>
           </section>

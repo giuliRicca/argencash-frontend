@@ -28,6 +28,7 @@ import { CreateTransferModal } from "@/components/create-transfer-modal";
 import { EditTransactionModal } from "@/components/edit-transaction-modal";
 import { MissingSessionState } from "@/components/missing-session-state";
 import { ErrorBanner } from "@/components/status-card";
+import { DashboardSidebar } from "@/components/dashboard-sidebar";
 
 type AccountDetailShellProps = {
   accountId: string;
@@ -46,6 +47,7 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
   const [accountTypeDraft, setAccountTypeDraft] = useState<AccountType>("STANDARD");
   const [fundingAccountIdDraft, setFundingAccountIdDraft] = useState("");
   const [paymentDayOfMonthDraft, setPaymentDayOfMonthDraft] = useState("1");
+  const [showMenu, setShowMenu] = useState(false);
 
   const accountQuery = useQuery({
     queryKey: ["account-detail", accountId, accessToken],
@@ -170,8 +172,11 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
   }
 
   return (
-    <main className={ui.page}>
-      <div className={ui.shellNarrow}>
+    <div className="flex min-h-screen">
+      <DashboardSidebar />
+      {showMenu ? <DashboardSidebar mobile onClose={() => setShowMenu(false)} /> : null}
+      <main className={`flex-1 xl:pl-32 2xl:pl-80 ${ui.page}`}>
+        <div className={ui.shellNarrow}>
         <div className="fade-up-enter flex items-center justify-between gap-4">
           <div>
             <Link className={ui.linkMuted} href="/accounts">
@@ -322,11 +327,27 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
               </div>
             ) : null}
           </div>
-          {accountQuery.data ? (
-            <span className={ui.badgeSuccess}>
-              {accountQuery.data.currencyCode}
-            </span>
-          ) : null}
+          <div className="flex items-center gap-2">
+            {accountQuery.data ? (
+              <span className={ui.badgeSuccess}>
+                {accountQuery.data.currencyCode}
+              </span>
+            ) : null}
+            <button
+              aria-label="Menu"
+              className="p-2 rounded-xl border border-[var(--border-strong)] hover:border-[var(--border-strong-hover)] transition xl:hidden"
+              onClick={() => setShowMenu(!showMenu)}
+              type="button"
+            >
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                {showMenu ? (
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                ) : (
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                )}
+              </svg>
+            </button>
+          </div>
         </div>
 
         {accountQuery.isLoading ? <Card><p className={`text-sm ${ui.textMuted}`}>Cargando cuenta...</p></Card> : null}
@@ -447,7 +468,7 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
             </Card>
           </>
         ) : null}
-      </div>
+        </div>
       {showAddModal && categoriesQuery.data ? (
         <CreateTransactionModal
           accounts={accountQuery.data ? [{ id: accountId, name: accountQuery.data.name, currencyCode: accountQuery.data.currencyCode, exchangeRateType: accountQuery.data.exchangeRateType, accountType: accountQuery.data.accountType, fundingAccountId: accountQuery.data.fundingAccountId, paymentDayOfMonth: accountQuery.data.paymentDayOfMonth, balanceInAccountCurrency: accountQuery.data.balanceInAccountCurrency, balanceUsd: accountQuery.data.balanceUsd, balanceArs: accountQuery.data.balanceArs } satisfies Account] : []}
@@ -481,7 +502,8 @@ export function AccountDetailShell({ accountId }: AccountDetailShellProps) {
           transaction={editingTransaction}
         />
       ) : null}
-    </main>
+      </main>
+    </div>
   );
 }
 
