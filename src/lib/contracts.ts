@@ -251,3 +251,37 @@ export type AssistantDraftResponse = {
   warnings: string[];
   message: string | null;
 };
+
+export type AssistantChatAction = "save_anyway";
+
+export type AssistantChatRequest = {
+  text: string;
+  action?: AssistantChatAction | null;
+  previousDraft?: AssistantTransactionDraft | null;
+};
+
+export type AssistantSavedTransaction = {
+  transactionId: string;
+  accountId: string;
+  accountName: string;
+  amount: number;
+  currency: string;
+  transactionType: "INCOME" | "EXPENSE" | string;
+  description: string;
+  categoryId: string | null;
+  categoryName: string | null;
+  transactionDate: string;
+  source: "ASSISTANT_TEXT" | "ASSISTANT_VOICE" | "MANUAL" | string;
+};
+
+export type AssistantTransactionPreview = Omit<AssistantSavedTransaction, "transactionId" | "source">;
+
+export type AssistantChatResponse = {
+  type: "transaction_saved" | "needs_followup" | "duplicate_warning" | "unsupported" | "finance_answer";
+  message: string;
+  transaction: AssistantSavedTransaction | null;
+  draft: AssistantTransactionDraft | null;
+  transactionPreview: AssistantTransactionPreview | null;
+  followUp: AssistantFollowUp | null;
+  warnings: string[];
+};
