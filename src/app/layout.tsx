@@ -17,8 +17,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ArgenCash Frontend",
-  description: "Frontend workspace for the ArgenCash fintech portfolio project.",
+  title: "ArgenCash",
+  description: "Gestioná tus cuentas, movimientos y presupuesto en ARS y USD.",
 };
 
 export default function RootLayout({
@@ -28,7 +28,7 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
+      lang="es"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full bg-[var(--background)] text-[var(--foreground)]">

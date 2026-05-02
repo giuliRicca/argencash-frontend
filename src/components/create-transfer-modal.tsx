@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useId, useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 
-import { Account, CreateTransferRequest } from "@/lib/contracts";
+import type { Account, CreateTransferRequest } from "@/lib/contracts";
 import { formatAmountInput, normalizeAmountInput, parseAmountInput } from "@/lib/amount-input";
 import { ui } from "@/lib/ui";
+import { ModalShell } from "@/components/modal-shell";
 
 type CreateTransferModalProps = {
   accounts: Account[];
@@ -46,19 +47,6 @@ export function CreateTransferModal({
   const formattedAmount = formatAmountInput(amount);
   const canSubmit = Boolean(fromAccountId && toAccountId && fromAccountId !== toAccountId && parsedAmount > 0);
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onClose();
-      }
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => {
-      window.removeEventListener("keydown", onKeyDown);
-    };
-  }, [onClose]);
-
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
 
@@ -72,19 +60,12 @@ export function CreateTransferModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
-      <div
-        aria-labelledby={titleId}
-        aria-modal="true"
-        className="w-full max-w-md rounded-[var(--radius-panel)] border border-[var(--border-soft)] bg-[var(--surface-1)] p-8 shadow-[var(--shadow-hero)]"
-        onClick={(event) => event.stopPropagation()}
-        role="dialog"
-      >
-        <h2 className={`text-2xl font-semibold ${ui.textPrimary}`} id={titleId}>Transfer Between Accounts</h2>
+    <ModalShell onClose={onClose} titleId={titleId}>
+        <h2 className={`text-2xl font-semibold ${ui.textPrimary}`} id={titleId}>Transferir entre cuentas</h2>
 
         <form className="mt-6 grid gap-4" onSubmit={handleSubmit}>
           <div>
-            <label className={`block text-sm ${ui.textMuted}`}>From account</label>
+            <label className={`block text-sm ${ui.textMuted}`}>Desde cuenta</label>
             <select
               className={`mt-1 w-full ${ui.input} disabled:cursor-not-allowed disabled:opacity-70`}
               disabled={lockFromAccount}
@@ -100,7 +81,7 @@ export function CreateTransferModal({
           </div>
 
           <div>
-            <label className={`block text-sm ${ui.textMuted}`}>To account</label>
+            <label className={`block text-sm ${ui.textMuted}`}>Hacia cuenta</label>
             <select
               className={`mt-1 w-full ${ui.input}`}
               onChange={(event) => setToAccountId(event.target.value)}
@@ -116,7 +97,7 @@ export function CreateTransferModal({
 
           <div className="grid grid-cols-[1fr_8rem] gap-3">
             <div>
-              <label className={`block text-sm ${ui.textMuted}`}>Amount</label>
+              <label className={`block text-sm ${ui.textMuted}`}>Monto</label>
               <input
                 className={`mt-1 w-full ${ui.input}`}
                 inputMode="decimal"
@@ -129,7 +110,7 @@ export function CreateTransferModal({
             </div>
 
             <div>
-              <label className={`block text-sm ${ui.textMuted}`}>Currency</label>
+              <label className={`block text-sm ${ui.textMuted}`}>Moneda</label>
               <select
                 className={`mt-1 w-full ${ui.input}`}
                 onChange={(event) => setCurrency(event.target.value as "USD" | "ARS")}
@@ -142,17 +123,17 @@ export function CreateTransferModal({
           </div>
 
           <div>
-            <label className={`block text-sm ${ui.textMuted}`}>Description (optional)</label>
+            <label className={`block text-sm ${ui.textMuted}`}>Descripción (opcional)</label>
             <input
               className={`mt-1 w-full ${ui.input}`}
               onChange={(event) => setDescription(event.target.value)}
-              placeholder="Transfer note"
+              placeholder="Nota de transferencia"
               type="text"
               value={description}
             />
           </div>
 
-          {fromAccountId === toAccountId ? <p className="text-sm text-[var(--state-danger)]">Select two different accounts.</p> : null}
+          {fromAccountId === toAccountId ? <p className="text-sm text-[var(--state-danger)]">Elegí dos cuentas distintas.</p> : null}
           {error ? <p className="text-sm text-[var(--state-danger)]">{error}</p> : null}
 
           <div className="mt-2 flex gap-3">
@@ -161,18 +142,17 @@ export function CreateTransferModal({
               onClick={onClose}
               type="button"
             >
-              Cancel
+              Cancelar
             </button>
             <button
               className={`flex-1 ${ui.buttonBase} ${ui.buttonSolidGold}`}
               disabled={isLoading || !canSubmit}
               type="submit"
             >
-              {isLoading ? "Transferring..." : "Transfer"}
+              {isLoading ? "Transfiriendo..." : "Transferir"}
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </ModalShell>
   );
 }

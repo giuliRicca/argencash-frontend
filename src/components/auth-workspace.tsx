@@ -9,20 +9,20 @@ import { z } from "zod";
 
 import { requestJson } from "@/lib/api";
 import { normalizeAccessToken } from "@/lib/auth-token";
-import { AuthResponse, LoginRequest, RegistrationInitiateRequest, RegistrationInitiateResponse, ResendVerificationRequest } from "@/lib/contracts";
+import type { AuthResponse, LoginRequest, RegistrationInitiateRequest, RegistrationInitiateResponse, ResendVerificationRequest } from "@/lib/contracts";
 import { persistToken } from "@/lib/storage";
 import { ui } from "@/lib/ui";
 import { BrandLogo } from "@/components/brand-logo";
 
 const loginSchema = z.object({
-  email: z.email("Enter a valid email address."),
-  password: z.string().min(8, "Password must be at least 8 characters."),
+  email: z.email("Ingresá un email válido."),
+  password: z.string().min(8, "La contraseña debe tener al menos 8 caracteres."),
 });
 
 const registerSchema = z.object({
-  fullName: z.string().trim().min(2, "Full name is required.").max(150, "Full name is too long."),
-  email: z.email("Enter a valid email address."),
-  password: z.string().min(8, "Password must be at least 8 characters."),
+  fullName: z.string().trim().min(2, "El nombre completo es obligatorio.").max(150, "El nombre completo es demasiado largo."),
+  email: z.email("Ingresá un email válido."),
+  password: z.string().min(8, "La contraseña debe tener al menos 8 caracteres."),
 });
 
 type LoginValues = z.infer<typeof loginSchema>;
@@ -104,50 +104,50 @@ export function AuthWorkspace({ initialMode = "login" }: AuthWorkspaceProps) {
 
         {mode !== "verification-sent" && (
           <div className="fade-up-enter-delay-1 mb-6 flex rounded-full border border-[var(--border-muted)] bg-[var(--surface-2)] p-1 text-sm">
-            <ModeButton active={mode === "login"} onClick={() => setMode("login")}>Sign in</ModeButton>
-            <ModeButton active={mode === "register"} onClick={() => setMode("register")}>Register</ModeButton>
+            <ModeButton active={mode === "login"} onClick={() => setMode("login")}>Ingresar</ModeButton>
+            <ModeButton active={mode === "register"} onClick={() => setMode("register")}>Registrarse</ModeButton>
           </div>
         )}
 
         {mode === "login" ? (
           <form className="fade-up-enter-delay-2 space-y-4" onSubmit={loginForm.handleSubmit((values) => loginMutation.mutate(values))}>
-            <Heading title="Sign in" />
+            <Heading title="Ingresar" />
             <Field label="Email" error={loginForm.formState.errors.email?.message}>
               <input className={inputClassName} placeholder="email@example.com" {...loginForm.register("email")} />
             </Field>
-            <Field label="Password" error={loginForm.formState.errors.password?.message}>
+            <Field label="Contraseña" error={loginForm.formState.errors.password?.message}>
               <input className={inputClassName} type="password" placeholder="StrongPass123!" {...loginForm.register("password")} />
             </Field>
             <button className={primaryButtonClassName} disabled={loginMutation.isPending} type="submit">
-              {loginMutation.isPending ? "Signing in..." : "Sign in"}
+              {loginMutation.isPending ? "Ingresando..." : "Ingresar"}
             </button>
             {loginMutation.error ? <InlineError message={loginMutation.error.message} /> : null}
           </form>
         ) : mode === "register" ? (
           <form className="fade-up-enter-delay-2 space-y-4" onSubmit={registerForm.handleSubmit(handleRegister)}>
-            <Heading title="Register" />
-            <Field label="Full name" error={registerForm.formState.errors.fullName?.message}>
-              <input className={inputClassName} placeholder="John Doe" {...registerForm.register("fullName")} />
+            <Heading title="Registrarse" />
+            <Field label="Nombre completo" error={registerForm.formState.errors.fullName?.message}>
+              <input className={inputClassName} placeholder="Juan Perez" {...registerForm.register("fullName")} />
             </Field>
             <Field label="Email" error={registerForm.formState.errors.email?.message}>
               <input className={inputClassName} placeholder="email@example.com" {...registerForm.register("email")} />
             </Field>
-            <Field label="Password" error={registerForm.formState.errors.password?.message}>
+            <Field label="Contraseña" error={registerForm.formState.errors.password?.message}>
               <input className={inputClassName} type="password" placeholder="StrongPass123!" {...registerForm.register("password")} />
             </Field>
             <button className={primaryButtonClassName} disabled={initiateRegisterMutation.isPending} type="submit">
-              {initiateRegisterMutation.isPending ? "Sending verification..." : "Create account"}
+              {initiateRegisterMutation.isPending ? "Enviando verificación..." : "Crear cuenta"}
             </button>
             {initiateRegisterMutation.error ? <InlineError message={initiateRegisterMutation.error.message} /> : null}
           </form>
         ) : (
           <div className="fade-up-enter-delay-2 space-y-4">
-            <Heading title="Check your email" />
+            <Heading title="Revisa tu email" />
             <p className={ui.textSecondary}>
-              We sent a verification link to <strong>{registeredEmail}</strong>.
+              Enviamos un enlace de verificación a <strong>{registeredEmail}</strong>.
             </p>
             <p className={ui.textSecondary}>
-              Click the link in the email to verify your account and complete registration.
+              Hace clic en el enlace del email para verificar tu cuenta y completar el registro.
             </p>
             <button
               className={secondaryButtonClassName}
@@ -155,14 +155,14 @@ export function AuthWorkspace({ initialMode = "login" }: AuthWorkspaceProps) {
               onClick={handleResend}
               type="button"
             >
-              {resendMutation.isPending ? "Resending..." : "Resend verification email"}
+              {resendMutation.isPending ? "Reenviando..." : "Reenviar email de verificación"}
             </button>
             <button
               className={tertiaryButtonClassName}
               onClick={() => setMode("register")}
               type="button"
             >
-              Go back
+              Volver
             </button>
             {resendMutation.error ? <InlineError message={resendMutation.error.message} /> : null}
           </div>

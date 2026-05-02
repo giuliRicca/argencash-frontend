@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useId, useState } from "react";
 
-import { Account, AccountType, CreateAccountRequest } from "@/lib/contracts";
+import type { Account, AccountType, CreateAccountRequest } from "@/lib/contracts";
 import { ui } from "@/lib/ui";
+import { ModalShell } from "@/components/modal-shell";
 
 type CreateAccountModalProps = {
   accounts: Account[];
@@ -38,19 +39,6 @@ export function CreateAccountModal({
       parsedPaymentDayOfMonth <= 28);
   const canSubmit = name.trim().length > 0 && hasValidCreditSettings;
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onClose();
-      }
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => {
-      window.removeEventListener("keydown", onKeyDown);
-    };
-  }, [onClose]);
-
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
 
@@ -69,60 +57,53 @@ export function CreateAccountModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
-      <div
-        aria-labelledby={titleId}
-        aria-modal="true"
-        className="w-full max-w-md rounded-[var(--radius-panel)] border border-[var(--border-soft)] bg-[var(--surface-1)] p-8 shadow-[var(--shadow-hero)]"
-        onClick={(event) => event.stopPropagation()}
-        role="dialog"
-      >
-        <h2 className={`text-2xl font-semibold ${ui.textPrimary}`} id={titleId}>Create Account</h2>
+    <ModalShell onClose={onClose} titleId={titleId}>
+        <h2 className={`text-2xl font-semibold ${ui.textPrimary}`} id={titleId}>Crear cuenta</h2>
         <form className="mt-6 grid gap-4" onSubmit={handleSubmit}>
           <div>
-            <label className={`block text-sm ${ui.textMuted}`}>Account Name</label>
+            <label className={`block text-sm ${ui.textMuted}`}>Nombre de cuenta</label>
             <input
               className={`mt-1 w-full ${ui.input}`}
               onChange={(event) => setName(event.target.value)}
-              placeholder="My Savings"
+              placeholder="Mis ahorros"
               required
               type="text"
               value={name}
             />
           </div>
           <div>
-            <label className={`block text-sm ${ui.textMuted}`}>Currency</label>
+            <label className={`block text-sm ${ui.textMuted}`}>Moneda</label>
             <select
               className={`mt-1 w-full ${ui.input}`}
               onChange={(event) => setCurrencyCode(event.target.value)}
               value={currencyCode}
             >
-              <option value="USD">USD - US Dollar</option>
-              <option value="ARS">ARS - Argentine Peso</option>
+              <option value="USD">USD - Dólar estadounidense</option>
+              <option value="ARS">ARS - Peso argentino</option>
             </select>
           </div>
           <div>
-            <label className={`block text-sm ${ui.textMuted}`}>Account Type</label>
+            <label className={`block text-sm ${ui.textMuted}`}>Tipo de cuenta</label>
             <select
               className={`mt-1 w-full ${ui.input}`}
               onChange={(event) => setAccountType(event.target.value as AccountType)}
               value={accountType}
             >
-              <option value="STANDARD">Standard</option>
-              <option value="CREDIT">Credit card</option>
+              <option value="STANDARD">Común</option>
+              <option value="CREDIT">Tarjeta de crédito</option>
             </select>
           </div>
           {isCreditAccount ? (
             <>
               <div>
-                <label className={`block text-sm ${ui.textMuted}`}>Funding Account</label>
+                <label className={`block text-sm ${ui.textMuted}`}>Cuenta de pago</label>
                 <select
                   className={`mt-1 w-full ${ui.input}`}
                   onChange={(event) => setFundingAccountId(event.target.value)}
                   required
                   value={resolvedFundingAccountId}
                 >
-                  {eligibleFundingAccounts.length === 0 ? <option value="">No eligible standard accounts</option> : null}
+                  {eligibleFundingAccounts.length === 0 ? <option value="">No hay cuentas comunes disponibles</option> : null}
                   {eligibleFundingAccounts.map((account) => (
                     <option key={account.id} value={account.id}>
                       {account.name}
@@ -131,7 +112,7 @@ export function CreateAccountModal({
                 </select>
               </div>
               <div>
-                <label className={`block text-sm ${ui.textMuted}`}>Payment Day of Month</label>
+                <label className={`block text-sm ${ui.textMuted}`}>Día de pago del mes</label>
                 <input
                   className={`mt-1 w-full ${ui.input}`}
                   max={28}
@@ -141,25 +122,24 @@ export function CreateAccountModal({
                   type="number"
                   value={paymentDayOfMonth}
                 />
-                <p className={`mt-1 text-xs ${ui.textMuted}`}>Valid range: 1 to 28.</p>
+                <p className={`mt-1 text-xs ${ui.textMuted}`}>Rango válido: 1 a 28.</p>
               </div>
             </>
           ) : null}
           {isCreditAccount && eligibleFundingAccounts.length === 0 ? (
-            <p className="text-sm text-[var(--state-danger)]">Create a standard account first to fund credit payments.</p>
+            <p className="text-sm text-[var(--state-danger)]">Creá una cuenta común primero para pagar la tarjeta.</p>
           ) : null}
           {error ? <p className="text-sm text-[var(--state-danger)]">{error}</p> : null}
           <div className="mt-2 flex gap-3">
             <button className={`flex-1 ${ui.buttonBase} ${ui.buttonNeutral}`} onClick={onClose} type="button">
-              Cancel
+              Cancelar
             </button>
             <button className={`flex-1 ${ui.buttonBase} ${ui.buttonSolidGold}`} disabled={isLoading || !canSubmit} type="submit">
-              {isLoading ? "Creating..." : "Create"}
+              {isLoading ? "Creando..." : "Crear"}
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </ModalShell>
   );
 }
 

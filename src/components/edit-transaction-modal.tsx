@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useId, useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 
-import { AccountTransaction, Category, UpdateTransactionRequest } from "@/lib/contracts";
+import type { AccountTransaction, Category, UpdateTransactionRequest } from "@/lib/contracts";
 import { formatAmountInput, normalizeAmountInput, parseAmountInput } from "@/lib/amount-input";
+import { formatTransactionTypeLabel } from "@/lib/labels";
 import { ui } from "@/lib/ui";
+import { ModalShell } from "@/components/modal-shell";
 
 type EditTransactionModalProps = {
   transaction: AccountTransaction;
@@ -39,19 +41,6 @@ export function EditTransactionModal({
   const formattedAmount = formatAmountInput(amount);
   const canSubmit = parsedAmount > 0;
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onClose();
-      }
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => {
-      window.removeEventListener("keydown", onKeyDown);
-    };
-  }, [onClose]);
-
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
 
@@ -63,27 +52,20 @@ export function EditTransactionModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
-      <div
-        aria-labelledby={titleId}
-        aria-modal="true"
-        className="w-full max-w-md rounded-[var(--radius-panel)] border border-[var(--border-soft)] bg-[var(--surface-1)] p-8 shadow-[var(--shadow-hero)]"
-        onClick={(event) => event.stopPropagation()}
-        role="dialog"
-      >
-        <h2 className={`text-2xl font-semibold ${ui.textPrimary}`} id={titleId}>Edit Transaction</h2>
+    <ModalShell onClose={onClose} titleId={titleId}>
+        <h2 className={`text-2xl font-semibold ${ui.textPrimary}`} id={titleId}>Editar transacción</h2>
 
         <form className="mt-6 grid gap-4" onSubmit={handleSubmit}>
           <div>
-            <label className={`block text-sm ${ui.textMuted}`}>Type</label>
+            <label className={`block text-sm ${ui.textMuted}`}>Tipo</label>
             <p className={`mt-1 rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-2)] px-4 py-3 text-sm ${ui.textPrimary}`}>
-              {transaction.transactionType === "EXPENSE" ? "Expense" : "Income"}
+              {formatTransactionTypeLabel(transaction.transactionType)}
             </p>
           </div>
 
           <div className="grid grid-cols-[1fr_8rem] gap-3">
             <div>
-              <label className={`block text-sm ${ui.textMuted}`}>Amount</label>
+              <label className={`block text-sm ${ui.textMuted}`}>Monto</label>
               <input
                 className={`mt-1 w-full ${ui.input}`}
                 inputMode="decimal"
@@ -96,7 +78,7 @@ export function EditTransactionModal({
             </div>
 
             <div>
-              <label className={`block text-sm ${ui.textMuted}`}>Currency</label>
+              <label className={`block text-sm ${ui.textMuted}`}>Moneda</label>
               <select
                 className={`mt-1 w-full ${ui.input}`}
                 onChange={(event) => setCurrency(event.target.value as "USD" | "ARS")}
@@ -109,13 +91,13 @@ export function EditTransactionModal({
           </div>
 
           <div>
-            <label className={`block text-sm ${ui.textMuted}`}>Category (optional)</label>
+            <label className={`block text-sm ${ui.textMuted}`}>Categoría (opcional)</label>
             <select
               className={`mt-1 w-full ${ui.input}`}
               onChange={(event) => setCategoryId(event.target.value)}
               value={categoryId}
             >
-              <option value="">No category</option>
+              <option value="">Sin categoría</option>
               {filteredCategories.map((category) => (
                 <option key={category.id} value={category.id}>
                   {category.name}
@@ -132,18 +114,17 @@ export function EditTransactionModal({
               onClick={onClose}
               type="button"
             >
-              Cancel
+              Cancelar
             </button>
             <button
               className={`flex-1 ${ui.buttonBase} ${ui.buttonSolidGold}`}
               disabled={isLoading || !canSubmit}
               type="submit"
             >
-              {isLoading ? "Saving..." : "Save"}
+              {isLoading ? "Guardando..." : "Guardar"}
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </ModalShell>
   );
 }

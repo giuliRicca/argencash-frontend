@@ -18,12 +18,12 @@ export async function forwardJson(response: Response) {
 }
 
 export function proxyFailureResponse(targetUrl: string, error: unknown) {
-  const detail = error instanceof Error ? error.message : "Unknown proxy error.";
+  const detail = error instanceof Error ? error.message : "Error de proxy desconocido.";
 
   return NextResponse.json(
     {
-      title: "Backend connection failed.",
-      detail: `Could not reach ${targetUrl}. ${detail}`,
+      title: "Falló la conexión con el backend.",
+      detail: `No se pudo alcanzar ${targetUrl}. ${detail}`,
       status: 502,
     },
     { status: 502 },

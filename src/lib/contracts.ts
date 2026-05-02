@@ -134,6 +134,11 @@ export type CreateTransactionRequest = {
   transactionType: string;
   description?: string | null;
   categoryId: string | null;
+  transactionDate?: string;
+  source?: "MANUAL" | "ASSISTANT_TEXT" | "ASSISTANT_VOICE";
+  ignoreDuplicateWarning?: boolean;
+  assistantLearningKey?: string | null;
+  assistantSuggestedCategoryId?: string | null;
 };
 
 export type UpdateTransactionRequest = {
@@ -207,4 +212,76 @@ export type VerifyEmailRequest = {
 
 export type ResendVerificationRequest = {
   email: string;
+};
+
+export type AssistantTransactionDraft = {
+  accountId: string | null;
+  amount: number | null;
+  currency: "ARS" | "USD";
+  wasCurrencyDefaulted: boolean;
+  transactionType: "INCOME" | "EXPENSE" | null;
+  description: string;
+  categoryId: string | null;
+  categorySkipped: boolean;
+  transactionDate: string | null;
+  learningKey: string | null;
+  suggestedCategoryId: string | null;
+};
+
+export type AssistantFollowUpOption = {
+  label: string;
+  value: string | null;
+};
+
+export type AssistantFollowUp = {
+  field: string;
+  question: string;
+  options: AssistantFollowUpOption[];
+};
+
+export type AssistantDraftRequest = {
+  text: string;
+  previousDraft?: AssistantTransactionDraft | null;
+};
+
+export type AssistantDraftResponse = {
+  state: "ready_to_confirm" | "needs_followup" | "unsupported";
+  draft: AssistantTransactionDraft | null;
+  followUp: AssistantFollowUp | null;
+  warnings: string[];
+  message: string | null;
+};
+
+export type AssistantChatAction = "save_anyway";
+
+export type AssistantChatRequest = {
+  text: string;
+  action?: AssistantChatAction | null;
+  previousDraft?: AssistantTransactionDraft | null;
+};
+
+export type AssistantSavedTransaction = {
+  transactionId: string;
+  accountId: string;
+  accountName: string;
+  amount: number;
+  currency: string;
+  transactionType: "INCOME" | "EXPENSE" | string;
+  description: string;
+  categoryId: string | null;
+  categoryName: string | null;
+  transactionDate: string;
+  source: "ASSISTANT_TEXT" | "ASSISTANT_VOICE" | "MANUAL" | string;
+};
+
+export type AssistantTransactionPreview = Omit<AssistantSavedTransaction, "transactionId" | "source">;
+
+export type AssistantChatResponse = {
+  type: "transaction_saved" | "needs_followup" | "duplicate_warning" | "unsupported" | "finance_answer";
+  message: string;
+  transaction: AssistantSavedTransaction | null;
+  draft: AssistantTransactionDraft | null;
+  transactionPreview: AssistantTransactionPreview | null;
+  followUp: AssistantFollowUp | null;
+  warnings: string[];
 };

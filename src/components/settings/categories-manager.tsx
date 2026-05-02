@@ -2,8 +2,9 @@
 
 import { useMemo, useState } from "react";
 
-import { Budget, Category, CreateBudgetRequest, CreateCategoryRequest, UpdateBudgetRequest } from "@/lib/contracts";
+import type { Budget, Category, CreateBudgetRequest, CreateCategoryRequest, UpdateBudgetRequest } from "@/lib/contracts";
 import { formatAmountInput, normalizeAmountInput, parseAmountInput } from "@/lib/amount-input";
+import { formatSystemLabel } from "@/lib/labels";
 import { ui } from "@/lib/ui";
 
 type CategoriesManagerProps = {
@@ -129,15 +130,15 @@ export function CategoriesManager({
 
   return (
     <section className={`${ui.panel} fade-up-enter-delay-2`} id="budgets">
-      <h2 className={`text-2xl font-semibold ${ui.textPrimary}`}>Categories</h2>
-      <p className={`mt-2 text-sm ${ui.textMuted}`}>Set monthly budgets for expense categories.</p>
+      <h2 className={`text-2xl font-semibold ${ui.textPrimary}`}>Categorías</h2>
+      <p className={`mt-2 text-sm ${ui.textMuted}`}>Configurá presupuestos mensuales para categorías de gasto.</p>
 
       <form className="mt-6 grid gap-3" onSubmit={handleSubmit}>
         <div className="flex flex-col gap-3 sm:flex-row">
           <input
             className={`flex-1 ${ui.input}`}
             onChange={(event) => setName(event.target.value)}
-            placeholder="Category name"
+            placeholder="Nombre de categoría"
             required
             type="text"
             value={name}
@@ -147,15 +148,15 @@ export function CategoriesManager({
             onChange={(event) => setType(event.target.value as "INCOME" | "EXPENSE")}
             value={type}
           >
-            <option value="EXPENSE">Expense</option>
-            <option value="INCOME">Income</option>
+            <option value="EXPENSE">Gasto</option>
+            <option value="INCOME">Ingreso</option>
           </select>
           <button
             className={`${ui.buttonBase} ${ui.buttonSolidGold} rounded-2xl px-4 py-3`}
             disabled={isCreating || name.trim().length === 0}
             type="submit"
           >
-            {isCreating ? "Creating..." : "Add"}
+            {isCreating ? "Creando..." : "Agregar"}
           </button>
         </div>
       </form>
@@ -171,11 +172,12 @@ export function CategoriesManager({
           onCancelEdit={() => setEditingCategoryId(null)}
           onSaveBudget={saveBudget}
           onUpdateDraft={updateDraft}
-          title="Expenses"
+          showBudgetControls
+          title="Gastos"
           budgetDrafts={budgetDrafts}
           getDraft={getDraft}
         />
-        <CategoryColumn categories={incomeCategories} title="Incomes" />
+        <CategoryColumn categories={incomeCategories} title="Ingresos" />
       </div>
     </section>
   );
@@ -194,6 +196,7 @@ function CategoryColumn({
   editingCategoryId,
   isSavingBudget,
   isDeletingBudget,
+  showBudgetControls = false,
 }: {
   title: string;
   categories: Category[];
@@ -207,12 +210,13 @@ function CategoryColumn({
   editingCategoryId?: string | null;
   isSavingBudget?: boolean;
   isDeletingBudget?: boolean;
+  showBudgetControls?: boolean;
 }) {
   return (
     <div>
       <h3 className={`mb-3 text-sm font-medium ${ui.textMuted}`}>{title}</h3>
       <div className="grid gap-2">
-        {categories.length === 0 ? <p className={`text-sm ${ui.textMuted}`}>No categories.</p> : null}
+        {categories.length === 0 ? <p className={`text-sm ${ui.textMuted}`}>No hay categorías.</p> : null}
         {categories.map((category) => (
           <div
             key={category.id}
@@ -220,15 +224,15 @@ function CategoryColumn({
           >
             <div className="min-w-0 flex-1">
               <p className={`truncate text-sm ${ui.textPrimary}`}>{category.name}</p>
-              <p className={`text-xs ${ui.textMuted}`}>{category.isSystem ? "System" : "Custom"}</p>
+              <p className={`text-xs ${ui.textMuted}`}>{formatSystemLabel(category.isSystem)}</p>
             </div>
-            {title === "Expenses" && budgetDrafts && onUpdateDraft && onSaveBudget && getDraft ? (
+            {showBudgetControls && budgetDrafts && onUpdateDraft && onSaveBudget && getDraft ? (
               <div className="ml-3 min-w-[260px]">
                 {editingCategoryId === category.id ? (
                   <div className="grid gap-2">
                     <div className="flex flex-wrap items-center justify-end gap-2">
                       <input
-                        aria-label={`Budget amount for ${category.name}`}
+                        aria-label={`Monto de presupuesto para ${category.name}`}
                         className="w-28 rounded-xl border border-[var(--border-strong)] bg-[var(--surface-2)] px-3 py-2 text-sm text-[var(--text-primary)] transition placeholder:text-[var(--text-muted)]/75 focus-visible:border-[var(--state-success-border)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--state-success-soft)] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                         min="0"
                         inputMode="decimal"
@@ -252,7 +256,7 @@ function CategoryColumn({
                         onClick={() => onSaveBudget(category.id)}
                         type="button"
                       >
-                        {isSavingBudget ? "Saving..." : getDraft(category.id).budgetId ? "Save" : "Set"}
+                        {isSavingBudget ? "Guardando..." : getDraft(category.id).budgetId ? "Guardar" : "Definir"}
                       </button>
                     </div>
                     <div className="flex flex-wrap items-center justify-end gap-2">
@@ -263,7 +267,7 @@ function CategoryColumn({
                           onClick={() => onDeleteBudget(category.id)}
                           type="button"
                         >
-                          Remove budget
+                          Quitar presupuesto
                         </button>
                       ) : null}
                       {onCancelEdit ? (
@@ -272,7 +276,7 @@ function CategoryColumn({
                           onClick={onCancelEdit}
                           type="button"
                         >
-                          Cancel
+                          Cancelar
                         </button>
                       ) : null}
                     </div>
@@ -282,10 +286,10 @@ function CategoryColumn({
                     {getDraft(category.id).budgetId ? (
                       <>
                         <span className={`text-xs ${ui.textMuted}`}>
-                          {getDraft(category.id).currency} {formatAmountInput(getDraft(category.id).amount || "0")} / month
+                          {getDraft(category.id).currency} {formatAmountInput(getDraft(category.id).amount || "0")} / mes
                         </span>
                         <span className="rounded-full border border-[var(--state-success-border)] bg-[var(--state-success-soft)] px-2 py-1 text-[11px] font-medium text-[var(--state-success)]">
-                          Budget set
+                          Presupuesto definido
                         </span>
                         {onEditCategory ? (
                           <button
@@ -293,20 +297,20 @@ function CategoryColumn({
                             onClick={() => onEditCategory(category.id)}
                             type="button"
                           >
-                            Edit
+                            Editar
                           </button>
                         ) : null}
                       </>
                     ) : (
                       <>
-                        <span className={`text-xs ${ui.textMuted}`}>No budget set</span>
+                        <span className={`text-xs ${ui.textMuted}`}>Sin presupuesto</span>
                         {onEditCategory ? (
                           <button
                             className={`${ui.buttonBase} ${ui.buttonSolidGold} rounded-xl px-3 py-2 text-xs`}
                             onClick={() => onEditCategory(category.id)}
                             type="button"
                           >
-                            Set
+                            Definir
                           </button>
                         ) : null}
                       </>

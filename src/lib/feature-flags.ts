@@ -1,0 +1,1 @@
+export const assistantEnabled = process.env.NEXT_PUBLIC_ASSISTANT_ENABLED === "true";
